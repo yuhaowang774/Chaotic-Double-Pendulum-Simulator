@@ -12,148 +12,40 @@ const DT = 0.002;
 const MAX_SUBSTEPS = 100;
 const TRAIL_CAPACITY = 2000;
 const TRAIL_FADE_SECONDS = 5;
+const MAX_LINKS = 8;
+const SUB = ["₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈"];
 
-const PALETTE_A = {
-  rod: 0x4fc3f7,
-  bob1: 0xff5722,
-  bob2: 0x2196f3,
-  trail1: 0xff5722,
-  trail2: 0x2196f3,
-};
+// 调色板:按杆序在色相环上插值(首锤→末锤)
+const PALETTE_A = { rod: 0x4fc3f7, hueStart: 16, hueSpan: 200 }; // 橙 → 蓝
+const PALETTE_B = { rod: 0x81c784, hueStart: 110, hueSpan: 200 }; // 绿 → 紫
 
-const PALETTE_B = {
-  rod: 0x81c784,
-  bob1: 0x4caf50,
-  bob2: 0x9c27b0,
-  trail1: 0x4caf50,
-  trail2: 0x9c27b0,
-};
-
-// 混沌对比:B 摆参数与 A 完全相同,仅一个初值相差 δ
-const compare = {
-  enabled: false,
-  field: "theta1",
-
-  get delta() {
-    const raw = parseFloat(document.getElementById("compare-delta").value);
-    return Number.isFinite(raw) ? raw : 0;
-  },
-
-  // 角度差(θ/φ)输入为度,ω 差输入为 rad/s
-  deltaRadians() {
-    const raw = this.delta;
-    return this.field.startsWith("omega") ? raw : (raw * Math.PI) / 180;
-  },
-
-  resync() {
-    if (!pendulumB) return;
-    if (physicsMode === "planar") {
-      pendulumB.state = { ...pendulumA.state };
-      pendulumB.state[this.field] += this.deltaRadians();
-    } else {
-      // 球面:反解 A 的角度初值,施加 δ 后重建笛卡尔状态
-      const angles = sphericalAnglesFromState(pendulumA.state, params);
-      angles[this.field] += this.deltaRadians();
-      pendulumB.state = sphericalStateFromAngles(angles, params);
-    }
-    pendulumB.clearTrails();
-    pendulumB.updateVisuals();
-  },
-
-  enable() {
-    pendulumB = new Pendulum(scene, PALETTE_B, physicsMode);
-    pendulumB.updateVisuals();
-    this.resync();
-    document.getElementById("compare-readout").style.display = "block";
-  },
-
-  disable() {
-    if (!pendulumB) return;
-    pendulumB.dispose(scene);
-    pendulumB = null;
-    document.getElementById("compare-readout").style.display = "none";
-  },
-};
-
-function formatDelta(value) {
-  return value < 1e-3 ? value.toExponential(2) : value.toFixed(4);
+function linkColor(palette, index, count) {
+  const t = count > 1 ? index / (count - 1) : 0;
+  return new THREE.Color().setHSL((palette.hueStart + palette.hueSpan * t) / 360, 0.75, 0.5);
 }
 
-// ---------- 物理模式(平面/球面) ----------
-
-const COMPARE_FIELDS = {
-  planar: [
-    ["theta1", "角度 θ₁"],
-    ["theta2", "角度 θ₂"],
-    ["omega1", "角速度 ω₁"],
-    ["omega2", "角速度 ω₂"],
-  ],
-  spherical: [
-    ["theta1", "角度 θ₁"],
-    ["theta2", "角度 θ₂"],
-    ["phi1", "方位角 φ₁"],
-    ["phi2", "方位角 φ₂"],
-    ["omega1", "角速度 ω₁"],
-    ["omega2", "角速度 ω₂"],
-    ["omegaphi1", "角速度 ωφ₁"],
-    ["omegaphi2", "角速度 ωφ₂"],
-  ],
-};
-
-function rebuildCompareFieldOptions() {
-  const select = document.getElementById("compare-field");
-  const options = COMPARE_FIELDS[physicsMode];
-  select.innerHTML = options
-    .map(([value, label]) => `<option value="${value}">${label}</option>`)
-    .join("");
-  if (!options.some(([value]) => value === compare.field)) {
-    compare.field = options[0][0];
-  }
-  select.value = compare.field;
-}
-
-// 切换模式/初始化时(重)建两摆:销毁旧 three.js 对象,按滑条初值重建状态
-function recreatePendulums() {
-  isPlaying = false;
-  simTime = 0;
-  if (pendulumA) pendulumA.dispose(scene);
-  if (pendulumB) {
-    pendulumB.dispose(scene);
-    pendulumB = null;
-  }
-  pendulumA = new Pendulum(scene, PALETTE_A, physicsMode);
-  pendulumA.resetToInitial();
-  pendulumA.updateVisuals();
-  if (compare.enabled) {
-    pendulumB = new Pendulum(scene, PALETTE_B, physicsMode);
-    compare.resync();
-  }
-  updateDataDisplay();
-}
-
-// 摆参数(A/B 共用);theta/phi 单位弧度,omega 单位 rad/s
+// 摆参数(A/B 共用,按杆数组);theta/phi 弧度,omega rad/s
 const params = {
-  m1: 1.0,
-  m2: 1.0,
-  l1: 1.0,
-  l2: 1.0,
-  theta1: Math.PI / 2,
-  theta2: Math.PI / 2,
-  omega1: 0,
-  omega2: 0,
-  phi1: 0,
-  phi2: 0,
-  omegaphi1: 0,
-  omegaphi2: 0,
+  masses: [1.0, 1.0],
+  lengths: [1.0, 1.0],
+  theta: [Math.PI / 2, Math.PI / 2],
+  omega: [0, 0],
+  phi: [0, 0],
+  omegaphi: [0, 0],
 };
+let linkCount = 2;
 
 let scene, camera, renderer, controls;
 let pendulumA = null;
-let pendulumB = null; // 混沌对比模式的 B 摆,下方 compare 区创建
+let pendulumB = null; // 混沌对比模式的 B 摆
 let physicsMode = "planar"; // "planar" | "spherical"
 let simTime = 0;
 let isPlaying = false;
 let lastFrameTime = null;
+
+// 数据面板缓存(rebuildParamPanel 时刷新,避免逐帧 getElementById)
+let dataThetaSpans = [];
+let dataOmegaSpans = [];
 
 // ---------- 轨迹:环形缓冲 + 渲染线 ----------
 
@@ -242,7 +134,7 @@ class TrailLine {
   }
 }
 
-// ---------- 摆体 ----------
+// ---------- 摆体(N 杆) ----------
 
 function setLine(line, x0, y0, z0, x1, y1, z1) {
   const a = line.geometry.attributes.position.array;
@@ -259,84 +151,63 @@ class Pendulum {
   constructor(scene, palette, mode) {
     this.mode = mode;
     this.palette = palette;
-    this.state =
-      mode === "planar"
-        ? { theta1: 0, theta2: 0, omega1: 0, omega2: 0 }
-        : sphericalStateFromAngles(
-            {
-              theta1: 0, phi1: 0, omega1: 0, omegaphi1: 0,
-              theta2: 0, phi2: 0, omega2: 0, omegaphi2: 0,
-            },
-            params,
-          );
-    // 供 pushTrails 使用的末端坐标缓存
-    this.x1 = 0;
-    this.y1 = 0;
-    this.z1 = 0;
-    this.x2 = 0;
-    this.y2 = 0;
-    this.z2 = 0;
-
-    this.rodMaterial = new THREE.LineBasicMaterial({ color: palette.rod });
-    this.rod1 = this.makeRod(scene);
-    this.rod2 = this.makeRod(scene);
-
-    this.bob1 = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 16, 16),
-      new THREE.MeshStandardMaterial({
-        color: palette.bob1,
-        metalness: 0.3,
-        roughness: 0.4,
-      }),
-    );
-    this.bob2 = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 16, 16),
-      new THREE.MeshStandardMaterial({
-        color: palette.bob2,
-        metalness: 0.3,
-        roughness: 0.4,
-      }),
-    );
-    scene.add(this.bob1);
-    scene.add(this.bob2);
-
-    this.trail1 = new TrailLine(scene, palette.trail1);
-    this.trail2 = new TrailLine(scene, palette.trail2);
+    this.rebuild(scene);
   }
 
-  makeRod(scene) {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(new Float32Array(6), 3),
+  rebuild(scene) {
+    const n = params.lengths.length;
+    this.n = n;
+    this.state = this.makeInitialState();
+    this.rodMaterial = new THREE.LineBasicMaterial({ color: this.palette.rod });
+    this.rods = [];
+    this.bobs = [];
+    this.trails = [];
+    this.tip = [];
+    for (let i = 0; i < n; i++) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(new Float32Array(6), 3),
+      );
+      const rod = new THREE.Line(geometry, this.rodMaterial);
+      rod.frustumCulled = false;
+      scene.add(rod);
+      this.rods.push(rod);
+
+      const bob = new THREE.Mesh(
+        new THREE.SphereGeometry(0.08, 16, 16),
+        new THREE.MeshStandardMaterial({
+          color: linkColor(this.palette, i, n),
+          metalness: 0.3,
+          roughness: 0.4,
+        }),
+      );
+      scene.add(bob);
+      this.bobs.push(bob);
+
+      this.trails.push(new TrailLine(scene, linkColor(this.palette, i, n)));
+      this.tip.push([0, 0, 0]);
+    }
+    this.resetToInitial();
+  }
+
+  makeInitialState() {
+    if (this.mode === "planar") {
+      return { theta: [...params.theta], omega: [...params.omega] };
+    }
+    return sphericalStateFromAngles(
+      {
+        theta: [...params.theta],
+        phi: [...params.phi],
+        omega: [...params.omega],
+        omegaphi: [...params.omegaphi],
+      },
+      params,
     );
-    const rod = new THREE.Line(geometry, this.rodMaterial);
-    rod.frustumCulled = false;
-    scene.add(rod);
-    return rod;
   }
 
   resetToInitial() {
-    if (this.mode === "planar") {
-      this.state.theta1 = params.theta1;
-      this.state.theta2 = params.theta2;
-      this.state.omega1 = params.omega1;
-      this.state.omega2 = params.omega2;
-    } else {
-      this.state = sphericalStateFromAngles(
-        {
-          theta1: params.theta1,
-          phi1: params.phi1,
-          omega1: params.omega1,
-          omegaphi1: params.omegaphi1,
-          theta2: params.theta2,
-          phi2: params.phi2,
-          omega2: params.omega2,
-          omegaphi2: params.omegaphi2,
-        },
-        params,
-      );
-    }
+    this.state = this.makeInitialState();
   }
 
   step() {
@@ -349,71 +220,64 @@ class Pendulum {
 
   isFiniteState() {
     if (this.mode === "planar") {
-      return (
-        Number.isFinite(this.state.theta1) &&
-        Number.isFinite(this.state.theta2) &&
-        Number.isFinite(this.state.omega1) &&
-        Number.isFinite(this.state.omega2)
-      );
+      return [...this.state.theta, ...this.state.omega].every(Number.isFinite);
     }
-    const s = this.state;
-    return [...s.p1, ...s.v1, ...s.p2, ...s.v2].every(Number.isFinite);
+    return [...this.state.p.flat(), ...this.state.v.flat()].every(
+      Number.isFinite,
+    );
   }
 
   updateVisuals() {
-    let x1, y1, z1, x2, y2, z2;
-    if (this.mode === "planar") {
-      x1 = params.l1 * Math.sin(this.state.theta1);
-      y1 = -params.l1 * Math.cos(this.state.theta1);
-      z1 = 0;
-      x2 = x1 + params.l2 * Math.sin(this.state.theta2);
-      y2 = y1 - params.l2 * Math.cos(this.state.theta2);
-      z2 = 0;
-    } else {
-      [x1, y1, z1] = this.state.p1;
-      [x2, y2, z2] = this.state.p2;
+    let prev = [0, 0, 0];
+    for (let i = 0; i < this.n; i++) {
+      let pos;
+      if (this.mode === "planar") {
+        pos = [
+          prev[0] + params.lengths[i] * Math.sin(this.state.theta[i]),
+          prev[1] - params.lengths[i] * Math.cos(this.state.theta[i]),
+          0,
+        ];
+      } else {
+        pos = [...this.state.p[i]];
+      }
+      setLine(
+        this.rods[i],
+        prev[0], prev[1], prev[2],
+        pos[0], pos[1], pos[2],
+      );
+      this.bobs[i].position.set(pos[0], pos[1], pos[2]);
+      this.tip[i] = pos;
+      prev = pos;
     }
-    setLine(this.rod1, 0, 0, 0, x1, y1, z1);
-    setLine(this.rod2, x1, y1, z1, x2, y2, z2);
-    this.bob1.position.set(x1, y1, z1);
-    this.bob2.position.set(x2, y2, z2);
-    this.x1 = x1;
-    this.y1 = y1;
-    this.z1 = z1;
-    this.x2 = x2;
-    this.y2 = y2;
-    this.z2 = z2;
   }
 
   pushTrails(simTime) {
     if (!document.getElementById("show-trail").checked) return;
-    this.trail1.ring.push(this.x1, this.y1, this.z1, simTime);
-    this.trail2.ring.push(this.x2, this.y2, this.z2, simTime);
-    this.trail1.ring.trim(simTime);
-    this.trail2.ring.trim(simTime);
-    this.trail1.sync();
-    this.trail2.sync();
+    for (let i = 0; i < this.n; i++) {
+      this.trails[i].ring.push(
+        this.tip[i][0], this.tip[i][1], this.tip[i][2], simTime,
+      );
+      this.trails[i].ring.trim(simTime);
+      this.trails[i].sync();
+    }
   }
 
   clearTrails() {
-    this.trail1.clear();
-    this.trail2.clear();
+    for (const t of this.trails) t.clear();
   }
 
   dispose(scene) {
-    scene.remove(this.rod1);
-    scene.remove(this.rod2);
-    scene.remove(this.bob1);
-    scene.remove(this.bob2);
-    this.rod1.geometry.dispose();
-    this.rod2.geometry.dispose();
+    for (const rod of this.rods) {
+      scene.remove(rod);
+      rod.geometry.dispose();
+    }
+    for (const bob of this.bobs) {
+      scene.remove(bob);
+      bob.geometry.dispose();
+      bob.material.dispose();
+    }
     this.rodMaterial.dispose();
-    this.bob1.geometry.dispose();
-    this.bob1.material.dispose();
-    this.bob2.geometry.dispose();
-    this.bob2.material.dispose();
-    this.trail1.dispose(scene);
-    this.trail2.dispose(scene);
+    for (const t of this.trails) t.dispose(scene);
   }
 }
 
@@ -428,69 +292,269 @@ function normalizeDeg(rad) {
 }
 
 function updateDataDisplay() {
-  let th1, th2, om1, om2, energy;
+  let thetas, omegas, energy;
   if (physicsMode === "planar") {
-    th1 = normalizeDeg(pendulumA.state.theta1);
-    th2 = normalizeDeg(pendulumA.state.theta2);
-    om1 = pendulumA.state.omega1;
-    om2 = pendulumA.state.omega2;
+    thetas = pendulumA.state.theta;
+    omegas = pendulumA.state.omega;
     energy = totalEnergy(pendulumA.state, params);
   } else {
     const a = sphericalAnglesFromState(pendulumA.state, params);
-    th1 = normalizeDeg(a.theta1);
-    th2 = normalizeDeg(a.theta2);
-    om1 = a.omega1;
-    om2 = a.omega2;
+    thetas = a.theta;
+    omegas = a.omega;
     energy = sphericalEnergy(pendulumA.state, params);
   }
-  document.getElementById("current-theta1").textContent = th1.toFixed(1);
-  document.getElementById("current-theta2").textContent = th2.toFixed(1);
-  document.getElementById("current-omega1").textContent = om1.toFixed(3);
-  document.getElementById("current-omega2").textContent = om2.toFixed(3);
+  for (let i = 0; i < dataThetaSpans.length; i++) {
+    dataThetaSpans[i].textContent = normalizeDeg(thetas[i]).toFixed(1);
+    dataOmegaSpans[i].textContent = omegas[i].toFixed(3);
+  }
   document.getElementById("total-energy").textContent = energy.toFixed(3);
   document.getElementById("run-time").textContent = simTime.toFixed(2);
 
   if (pendulumB) {
-    let d1, d2;
+    let dFirst, dLast;
     if (physicsMode === "planar") {
-      d1 =
-        (Math.abs(pendulumA.state.theta1 - pendulumB.state.theta1) * 180) /
+      dFirst =
+        (Math.abs(pendulumA.state.theta[0] - pendulumB.state.theta[0]) * 180) /
         Math.PI;
-      d2 =
-        (Math.abs(pendulumA.state.theta2 - pendulumB.state.theta2) * 180) /
+      dLast =
+        (Math.abs(
+          pendulumA.state.theta[linkCount - 1] -
+            pendulumB.state.theta[linkCount - 1],
+        ) *
+          180) /
         Math.PI;
     } else {
       const aa = sphericalAnglesFromState(pendulumA.state, params);
       const ab = sphericalAnglesFromState(pendulumB.state, params);
-      d1 = (Math.abs(aa.theta1 - ab.theta1) * 180) / Math.PI;
-      d2 = (Math.abs(aa.theta2 - ab.theta2) * 180) / Math.PI;
+      dFirst = (Math.abs(aa.theta[0] - ab.theta[0]) * 180) / Math.PI;
+      dLast =
+        (Math.abs(aa.theta[linkCount - 1] - ab.theta[linkCount - 1]) * 180) /
+        Math.PI;
     }
-    document.getElementById("delta-theta1").textContent = formatDelta(d1);
-    document.getElementById("delta-theta2").textContent = formatDelta(d2);
+    document.getElementById("delta-theta-first").textContent =
+      formatDelta(dFirst);
+    document.getElementById("delta-theta-last").textContent =
+      formatDelta(dLast);
   }
 }
 
-// ---------- UI 绑定 ----------
+// ---------- 混沌对比 ----------
 
-function bindSlider(id, valueId, onChange, format = (v) => v.toFixed(1)) {
-  const input = document.getElementById(id);
-  const label = document.getElementById(valueId);
-  input.addEventListener("input", (e) => {
-    const value = parseFloat(e.target.value);
-    label.textContent = format(value);
-    onChange(value);
+const compare = {
+  enabled: false,
+  field: "theta1", // "theta1" | "phi2" | "omega1" | "omegaphi3" …
+
+  get delta() {
+    const raw = parseFloat(document.getElementById("compare-delta").value);
+    return Number.isFinite(raw) ? raw : 0;
+  },
+
+  // 角度差(θ/φ)输入为度,ω 差输入为 rad/s
+  deltaRadians() {
+    return this.field.startsWith("omega")
+      ? this.delta
+      : (this.delta * Math.PI) / 180;
+  },
+
+  parseField() {
+    const m = this.field.match(/^(theta|phi|omega|omegaphi)(\d+)$/);
+    return m ? { type: m[1], index: Number(m[2]) - 1 } : { type: "theta", index: 0 };
+  },
+
+  resync() {
+    if (!pendulumB) return;
+    const { type, index } = this.parseField();
+    if (physicsMode === "planar") {
+      pendulumB.state = {
+        theta: [...pendulumA.state.theta],
+        omega: [...pendulumA.state.omega],
+      };
+      pendulumB.state[type][index] += this.deltaRadians();
+    } else {
+      // 球面:反解 A 的角度初值,施加 δ 后重建笛卡尔状态
+      const angles = sphericalAnglesFromState(pendulumA.state, params);
+      angles[type][index] += this.deltaRadians();
+      pendulumB.state = sphericalStateFromAngles(angles, params);
+    }
+    pendulumB.clearTrails();
+    pendulumB.updateVisuals();
+  },
+
+  enable() {
+    pendulumB = new Pendulum(scene, PALETTE_B, physicsMode);
+    this.resync();
+    document.getElementById("compare-readout").style.display = "block";
+  },
+
+  disable() {
+    if (!pendulumB) return;
+    pendulumB.dispose(scene);
+    pendulumB = null;
+    document.getElementById("compare-readout").style.display = "none";
+  },
+};
+
+function formatDelta(value) {
+  return value < 1e-3 ? value.toExponential(2) : value.toFixed(4);
+}
+
+function compareFieldOptions() {
+  const options = [];
+  for (let i = 0; i < linkCount; i++) {
+    options.push([`theta${i + 1}`, `角度 θ${SUB[i]}`]);
+    options.push([`omega${i + 1}`, `角速度 ω${SUB[i]}`]);
+    if (physicsMode === "spherical") {
+      options.push([`phi${i + 1}`, `方位角 φ${SUB[i]}`]);
+      options.push([`omegaphi${i + 1}`, `角速度 ωφ${SUB[i]}`]);
+    }
+  }
+  return options;
+}
+
+function rebuildCompareFieldOptions() {
+  const select = document.getElementById("compare-field");
+  const options = compareFieldOptions();
+  select.innerHTML = options
+    .map(([value, label]) => `<option value="${value}">${label}</option>`)
+    .join("");
+  if (!options.some(([value]) => value === compare.field)) {
+    compare.field = options[0][0];
+  }
+  select.value = compare.field;
+}
+
+// ---------- 动态面板(每杆一组滑条) ----------
+
+function createSlider(container, labelText, min, max, step, value, format, onChange) {
+  const group = document.createElement("div");
+  group.className = "control-group";
+  const label = document.createElement("label");
+  const span = document.createElement("span");
+  span.textContent = format(value);
+  label.append(document.createTextNode(labelText), span);
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = min;
+  input.max = max;
+  input.step = step;
+  input.value = value;
+  input.addEventListener("input", () => {
+    const v = parseFloat(input.value);
+    span.textContent = format(v);
+    onChange(v);
   });
+  group.append(label, input);
+  container.append(group);
 }
 
-function clearAllTrails() {
-  pendulumA.clearTrails();
-  if (pendulumB) pendulumB.clearTrails();
+function rebuildParamPanel() {
+  const n = linkCount;
+
+  // 摆参数区:每杆 L/m
+  const paramsBox = document.getElementById("links-params");
+  paramsBox.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const card = document.createElement("div");
+    card.className = "link-card";
+    const head = document.createElement("h4");
+    head.textContent = `杆 ${i + 1}`;
+    const grid = document.createElement("div");
+    grid.className = "link-grid";
+    card.append(head, grid);
+    createSlider(
+      grid,
+      `杆长 L${SUB[i]} (m): `,
+      0.5, 2, 0.1, params.lengths[i],
+      (v) => v.toFixed(1),
+      (v) => onPhysicalParamChange("lengths", i, v),
+    );
+    createSlider(
+      grid,
+      `质量 m${SUB[i]} (kg): `,
+      0.1, 5, 0.1, params.masses[i],
+      (v) => v.toFixed(1),
+      (v) => onPhysicalParamChange("masses", i, v),
+    );
+    paramsBox.append(card);
+  }
+
+  // 初始条件区:每杆 θ/ω(+球面专属 φ/ωφ,CSS 控制显隐)
+  const initBox = document.getElementById("links-initial");
+  initBox.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const card = document.createElement("div");
+    card.className = "link-card";
+    const head = document.createElement("h4");
+    head.textContent = `杆 ${i + 1}`;
+    const grid = document.createElement("div");
+    grid.className = "link-grid";
+    card.append(head, grid);
+    createSlider(
+      grid,
+      `角度 θ${SUB[i]} (°): `,
+      -180, 180, 1, (params.theta[i] * 180) / Math.PI,
+      (v) => `${v}`,
+      (v) => onInitialParamChange("theta", i, (v * Math.PI) / 180),
+    );
+    createSlider(
+      grid,
+      `角速度 ω${SUB[i]}: `,
+      -10, 10, 0.1, params.omega[i],
+      (v) => v.toFixed(1),
+      (v) => onInitialParamChange("omega", i, v),
+    );
+    const sphGrid = document.createElement("div");
+    sphGrid.className = "link-grid spherical-slider-group";
+    createSlider(
+      sphGrid,
+      `方位角 φ${SUB[i]} (°): `,
+      -180, 180, 1, (params.phi[i] * 180) / Math.PI,
+      (v) => `${v}`,
+      (v) => onInitialParamChange("phi", i, (v * Math.PI) / 180),
+    );
+    createSlider(
+      sphGrid,
+      `角速度 ωφ${SUB[i]}: `,
+      -10, 10, 0.1, params.omegaphi[i],
+      (v) => v.toFixed(1),
+      (v) => onInitialParamChange("omegaphi", i, v),
+    );
+    card.append(sphGrid);
+    initBox.append(card);
+  }
+
+  // 数据面板:θ/ω 行
+  const dataBox = document.getElementById("links-data");
+  dataBox.innerHTML = "";
+  dataThetaSpans = [];
+  dataOmegaSpans = [];
+  for (let i = 0; i < n; i++) {
+    const pT = document.createElement("p");
+    const sT = document.createElement("span");
+    sT.textContent = "--";
+    pT.append(`角度 θ${SUB[i]}: `, sT, " °");
+    const pO = document.createElement("p");
+    const sO = document.createElement("span");
+    sO.textContent = "--";
+    pO.append(`角速度 ω${SUB[i]}: `, sO);
+    dataBox.append(pT, pO);
+    dataThetaSpans.push(sT);
+    dataOmegaSpans.push(sO);
+  }
 }
 
-// 初值滑条(θ/φ/ω/ωφ):仅暂停时可调;按滑条整体重建初始状态(两模式一致),
+function onPhysicalParamChange(kind, index, value) {
+  params[kind][index] = value;
+  clearAllTrails();
+  pendulumA.updateVisuals();
+  if (pendulumB) pendulumB.updateVisuals();
+  updateDataDisplay();
+}
+
+// 初值滑条(θ/φ/ω/ωφ):仅暂停时可调;按滑条整体重建初始状态,
 // B 摆(若启用)经 resync 自动跟随保持 δ
-function onInitialConditionChange(field, value) {
-  params[field] = value;
+function onInitialParamChange(kind, index, value) {
+  params[kind][index] = value;
   if (isPlaying) return;
   pendulumA.resetToInitial();
   clearAllTrails();
@@ -498,6 +562,50 @@ function onInitialConditionChange(field, value) {
   if (compare.enabled) compare.resync();
   updateDataDisplay();
 }
+
+// 杆数变更:参数数组伸缩(保留原值,新杆默认 L=1、m=1、θ=90°、φ=0、角速度 0)
+function setLinkCount(n) {
+  linkCount = n;
+  for (const [key, fill] of [
+    ["masses", 1.0],
+    ["lengths", 1.0],
+    ["theta", Math.PI / 2],
+    ["omega", 0],
+    ["phi", 0],
+    ["omegaphi", 0],
+  ]) {
+    const arr = params[key];
+    while (arr.length < n) arr.push(fill);
+    arr.length = n;
+  }
+  rebuildParamPanel();
+  rebuildCompareFieldOptions();
+  recreatePendulums();
+}
+
+function recreatePendulums() {
+  isPlaying = false;
+  simTime = 0;
+  if (pendulumA) pendulumA.dispose(scene);
+  if (pendulumB) {
+    pendulumB.dispose(scene);
+    pendulumB = null;
+  }
+  pendulumA = new Pendulum(scene, PALETTE_A, physicsMode);
+  pendulumA.updateVisuals();
+  if (compare.enabled) {
+    pendulumB = new Pendulum(scene, PALETTE_B, physicsMode);
+    compare.resync();
+  }
+  updateDataDisplay();
+}
+
+function clearAllTrails() {
+  pendulumA.clearTrails();
+  if (pendulumB) pendulumB.clearTrails();
+}
+
+// ---------- 控制按钮与数值防护 ----------
 
 function onPlay() {
   isPlaying = true;
@@ -518,65 +626,36 @@ function onReset() {
   updateDataDisplay();
 }
 
-function setupControls() {
-  bindSlider("l1", "l1-value", (v) => {
-    params.l1 = v;
-    clearAllTrails();
-  });
-  bindSlider("l2", "l2-value", (v) => {
-    params.l2 = v;
-    clearAllTrails();
-  });
-  bindSlider("m1", "m1-value", (v) => {
-    params.m1 = v;
-    clearAllTrails();
-    updateDataDisplay();
-  });
-  bindSlider("m2", "m2-value", (v) => {
-    params.m2 = v;
-    clearAllTrails();
-    updateDataDisplay();
-  });
-  bindSlider(
-    "theta1",
-    "theta1-value",
-    (v) => onInitialConditionChange("theta1", (v * Math.PI) / 180),
-    (v) => `${v}`,
-  );
-  bindSlider(
-    "theta2",
-    "theta2-value",
-    (v) => onInitialConditionChange("theta2", (v * Math.PI) / 180),
-    (v) => `${v}`,
-  );
-  bindSlider("omega1", "omega1-value", (v) =>
-    onInitialConditionChange("omega1", v),
-  );
-  bindSlider("omega2", "omega2-value", (v) =>
-    onInitialConditionChange("omega2", v),
-  );
-  bindSlider(
-    "phi1",
-    "phi1-value",
-    (v) => onInitialConditionChange("phi1", (v * Math.PI) / 180),
-    (v) => `${v}`,
-  );
-  bindSlider(
-    "phi2",
-    "phi2-value",
-    (v) => onInitialConditionChange("phi2", (v * Math.PI) / 180),
-    (v) => `${v}`,
-  );
-  bindSlider("omegaphi1", "omegaphi1-value", (v) =>
-    onInitialConditionChange("omegaphi1", v),
-  );
-  bindSlider("omegaphi2", "omegaphi2-value", (v) =>
-    onInitialConditionChange("omegaphi2", v),
-  );
+function pauseSimulation(message) {
+  isPlaying = false;
+  const warn = document.getElementById("numerical-warning");
+  warn.textContent = message;
+  warn.style.display = "block";
+}
 
+function hideWarning() {
+  document.getElementById("numerical-warning").style.display = "none";
+}
+
+function setupControls() {
   document.getElementById("play-btn").addEventListener("click", onPlay);
   document.getElementById("pause-btn").addEventListener("click", onPause);
   document.getElementById("reset-btn").addEventListener("click", onReset);
+
+  document.getElementById("link-count").addEventListener("input", (e) => {
+    const n = parseInt(e.target.value, 10);
+    document.getElementById("link-count-value").textContent = n;
+    setLinkCount(n);
+  });
+
+  document.getElementById("physics-mode").addEventListener("change", (e) => {
+    physicsMode = e.target.value;
+    document
+      .getElementById("control-panel")
+      .classList.toggle("mode-spherical", physicsMode === "spherical");
+    rebuildCompareFieldOptions();
+    recreatePendulums();
+  });
 
   document.getElementById("compare-enable").addEventListener("change", (e) => {
     compare.enabled = e.target.checked;
@@ -609,28 +688,6 @@ function setupControls() {
       updateDataDisplay();
     }
   });
-
-  document.getElementById("physics-mode").addEventListener("change", (e) => {
-    physicsMode = e.target.value;
-    document
-      .getElementById("spherical-only")
-      .classList.toggle("visible", physicsMode === "spherical");
-    rebuildCompareFieldOptions();
-    recreatePendulums();
-  });
-}
-
-// ---------- 数值防护 ----------
-
-function pauseSimulation(message) {
-  isPlaying = false;
-  const warn = document.getElementById("numerical-warning");
-  warn.textContent = message;
-  warn.style.display = "block";
-}
-
-function hideWarning() {
-  document.getElementById("numerical-warning").style.display = "none";
 }
 
 // ---------- 场景与主循环 ----------
@@ -686,6 +743,8 @@ function init() {
   gridHelper.position.y = -3;
   scene.add(gridHelper);
 
+  rebuildParamPanel();
+  rebuildCompareFieldOptions();
   recreatePendulums();
 
   window.addEventListener("resize", onWindowResize);

@@ -281,13 +281,39 @@ body {
   width: 100%;
 }
 
-.spherical-only {
+/* ===== 多杆链:每杆参数卡片 ===== */
+
+.link-card {
+  background: #0f3460;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.link-card h4 {
+  color: #4fc3f7;
+  font-size: 0.85em;
+  margin-bottom: 6px;
+}
+
+.link-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+
+.link-grid .control-group {
+  margin-bottom: 4px;
+}
+
+.spherical-slider-group {
   display: none;
-  margin-top: 8px;
-  padding-top: 8px;
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding-top: 6px;
   border-top: 1px dashed #1a4a7a;
 }
 
-.spherical-only.visible {
-  display: block;
+#control-panel.mode-spherical .spherical-slider-group {
+  display: grid;
 }

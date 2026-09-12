@@ -23,143 +23,22 @@
             </label>
           </div>
           <div class="control-group">
-            <label>杆长 L₁ (m): <span id="l1-value">1.0</span></label>
+            <label>杆数: <span id="link-count-value">2</span></label>
             <input
               type="range"
-              id="l1"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value="1.0"
+              id="link-count"
+              min="1"
+              max="8"
+              step="1"
+              value="2"
             />
           </div>
-          <div class="control-group">
-            <label>杆长 L₂ (m): <span id="l2-value">1.0</span></label>
-            <input
-              type="range"
-              id="l2"
-              min="0.5"
-              max="2"
-              step="0.1"
-              value="1.0"
-            />
-          </div>
-          <div class="control-group">
-            <label>质量 m₁ (kg): <span id="m1-value">1.0</span></label>
-            <input
-              type="range"
-              id="m1"
-              min="0.1"
-              max="5"
-              step="0.1"
-              value="1.0"
-            />
-          </div>
-          <div class="control-group">
-            <label>质量 m₂ (kg): <span id="m2-value">1.0</span></label>
-            <input
-              type="range"
-              id="m2"
-              min="0.1"
-              max="5"
-              step="0.1"
-              value="1.0"
-            />
-          </div>
+          <div id="links-params"></div>
         </div>
 
         <div class="param-section">
           <h3>初始条件</h3>
-          <div class="control-group">
-            <label>角度 θ₁ (°): <span id="theta1-value">90</span></label>
-            <input
-              type="range"
-              id="theta1"
-              min="-180"
-              max="180"
-              step="1"
-              value="90"
-            />
-          </div>
-          <div class="control-group">
-            <label>角度 θ₂ (°): <span id="theta2-value">90</span></label>
-            <input
-              type="range"
-              id="theta2"
-              min="-180"
-              max="180"
-              step="1"
-              value="90"
-            />
-          </div>
-          <div class="control-group">
-            <label>角速度 ω₁ (rad/s): <span id="omega1-value">0</span></label>
-            <input
-              type="range"
-              id="omega1"
-              min="-10"
-              max="10"
-              step="0.1"
-              value="0"
-            />
-          </div>
-          <div class="control-group">
-            <label>角速度 ω₂ (rad/s): <span id="omega2-value">0</span></label>
-            <input
-              type="range"
-              id="omega2"
-              min="-10"
-              max="10"
-              step="0.1"
-              value="0"
-            />
-          </div>
-          <div class="spherical-only" id="spherical-only">
-            <div class="control-group">
-              <label>方位角 φ₁ (°): <span id="phi1-value">0</span></label>
-              <input
-                type="range"
-                id="phi1"
-                min="-180"
-                max="180"
-                step="1"
-                value="0"
-              />
-            </div>
-            <div class="control-group">
-              <label>方位角 φ₂ (°): <span id="phi2-value">0</span></label>
-              <input
-                type="range"
-                id="phi2"
-                min="-180"
-                max="180"
-                step="1"
-                value="0"
-              />
-            </div>
-            <div class="control-group">
-              <label>角速度 ωφ₁ (rad/s): <span id="omegaphi1-value">0</span></label>
-              <input
-                type="range"
-                id="omegaphi1"
-                min="-10"
-                max="10"
-                step="0.1"
-                value="0"
-              />
-            </div>
-            <div class="control-group">
-              <label>角速度 ωφ₂ (rad/s): <span id="omegaphi2-value">0</span></label>
-              <input
-                type="range"
-                id="omegaphi2"
-                min="-10"
-                max="10"
-                step="0.1"
-                value="0"
-              />
-            </div>
-          </div>
+          <div id="links-initial"></div>
         </div>
 
         <div class="control-group">
@@ -208,18 +87,15 @@
             <button id="compare-resync">重新同步 B</button>
           </div>
           <div id="compare-readout" style="display: none;">
-            <p>|Δθ₁|: <span id="delta-theta1">--</span> °</p>
-            <p>|Δθ₂|: <span id="delta-theta2">--</span> °</p>
+            <p>|Δθ| 首锤: <span id="delta-theta-first">--</span> °</p>
+            <p>|Δθ| 末锤: <span id="delta-theta-last">--</span> °</p>
           </div>
           <p class="compare-hint">A/B 仅一个初值相差 δ,观察轨迹如何分裂。</p>
         </div>
 
         <div class="data-display">
           <h3>实时数据</h3>
-          <p>角度 θ₁: <span id="current-theta1">--</span> °</p>
-          <p>角度 θ₂: <span id="current-theta2">--</span> °</p>
-          <p>角动量 p₁: <span id="current-omega1">--</span></p>
-          <p>角动量 p₂: <span id="current-omega2">--</span></p>
+          <div id="links-data"></div>
           <p>总能量 E: <span id="total-energy">--</span> J</p>
           <p>运行时间: <span id="run-time">--</span> s</p>
         </div>
