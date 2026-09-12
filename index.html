@@ -15,6 +15,14 @@
         <div class="param-section">
           <h3>摆参数</h3>
           <div class="control-group">
+            <label>物理模式:
+              <select id="physics-mode">
+                <option value="planar" selected>平面双摆</option>
+                <option value="spherical">球面双摆(3D)</option>
+              </select>
+            </label>
+          </div>
+          <div class="control-group">
             <label>杆长 L₁ (m): <span id="l1-value">1.0</span></label>
             <input
               type="range"
@@ -105,6 +113,52 @@
               step="0.1"
               value="0"
             />
+          </div>
+          <div class="spherical-only" id="spherical-only">
+            <div class="control-group">
+              <label>方位角 φ₁ (°): <span id="phi1-value">0</span></label>
+              <input
+                type="range"
+                id="phi1"
+                min="-180"
+                max="180"
+                step="1"
+                value="0"
+              />
+            </div>
+            <div class="control-group">
+              <label>方位角 φ₂ (°): <span id="phi2-value">0</span></label>
+              <input
+                type="range"
+                id="phi2"
+                min="-180"
+                max="180"
+                step="1"
+                value="0"
+              />
+            </div>
+            <div class="control-group">
+              <label>角速度 ωφ₁ (rad/s): <span id="omegaphi1-value">0</span></label>
+              <input
+                type="range"
+                id="omegaphi1"
+                min="-10"
+                max="10"
+                step="0.1"
+                value="0"
+              />
+            </div>
+            <div class="control-group">
+              <label>角速度 ωφ₂ (rad/s): <span id="omegaphi2-value">0</span></label>
+              <input
+                type="range"
+                id="omegaphi2"
+                min="-10"
+                max="10"
+                step="0.1"
+                value="0"
+              />
+            </div>
           </div>
         </div>
 

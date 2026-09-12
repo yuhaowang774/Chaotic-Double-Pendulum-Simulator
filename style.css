@@ -269,3 +269,25 @@ body {
     max-width: 140px;
   }
 }
+
+/* ===== 物理模式切换(球面模式新增)===== */
+
+#physics-mode {
+  background: #1a4a7a;
+  color: #fff;
+  border: 1px solid #4fc3f7;
+  border-radius: 4px;
+  padding: 3px 6px;
+  width: 100%;
+}
+
+.spherical-only {
+  display: none;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #1a4a7a;
+}
+
+.spherical-only.visible {
+  display: block;
+}
