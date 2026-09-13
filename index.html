@@ -15,12 +15,11 @@
         <div class="param-section">
           <h3>摆参数</h3>
           <div class="control-group">
-            <label>物理模式:
-              <select id="physics-mode">
-                <option value="planar" selected>平面双摆</option>
-                <option value="spherical">球面双摆(3D)</option>
-              </select>
-            </label>
+            <label>物理模式:</label>
+            <div class="segment" id="mode-segment">
+              <button type="button" data-mode="planar" class="active">平面</button>
+              <button type="button" data-mode="spherical">球面 3D</button>
+            </div>
           </div>
           <div class="control-group">
             <label>杆数: <span id="link-count-value">2</span></label>
@@ -37,7 +36,10 @@
         </div>
 
         <div class="param-section">
-          <h3>初始条件</h3>
+          <div class="section-header">
+            <h3>初始条件</h3>
+            <button type="button" id="random-btn">随机初始值</button>
+          </div>
           <div id="links-initial"></div>
         </div>
 

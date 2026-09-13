@@ -47,6 +47,16 @@ let lastFrameTime = null;
 let dataThetaSpans = [];
 let dataOmegaSpans = [];
 
+// 动态滑条引用(randomize 后同步显示用)
+const sliderRefs = {
+  lengths: [],
+  masses: [],
+  theta: [],
+  omega: [],
+  phi: [],
+  omegaphi: [],
+};
+
 // ---------- 轨迹:环形缓冲 + 渲染线 ----------
 
 class TrailRing {
@@ -445,10 +455,12 @@ function createSlider(container, labelText, min, max, step, value, format, onCha
   });
   group.append(label, input);
   container.append(group);
+  return { input, span };
 }
 
 function rebuildParamPanel() {
   const n = linkCount;
+  for (const key of Object.keys(sliderRefs)) sliderRefs[key] = [];
 
   // 摆参数区:每杆 L/m
   const paramsBox = document.getElementById("links-params");
@@ -461,14 +473,14 @@ function rebuildParamPanel() {
     const grid = document.createElement("div");
     grid.className = "link-grid";
     card.append(head, grid);
-    createSlider(
+    sliderRefs.lengths[i] = createSlider(
       grid,
       `杆长 L${SUB[i]} (m): `,
       0.5, 2, 0.1, params.lengths[i],
       (v) => v.toFixed(1),
       (v) => onPhysicalParamChange("lengths", i, v),
     );
-    createSlider(
+    sliderRefs.masses[i] = createSlider(
       grid,
       `质量 m${SUB[i]} (kg): `,
       0.1, 5, 0.1, params.masses[i],
@@ -489,14 +501,14 @@ function rebuildParamPanel() {
     const grid = document.createElement("div");
     grid.className = "link-grid";
     card.append(head, grid);
-    createSlider(
+    sliderRefs.theta[i] = createSlider(
       grid,
       `角度 θ${SUB[i]} (°): `,
       -180, 180, 1, (params.theta[i] * 180) / Math.PI,
       (v) => `${v}`,
       (v) => onInitialParamChange("theta", i, (v * Math.PI) / 180),
     );
-    createSlider(
+    sliderRefs.omega[i] = createSlider(
       grid,
       `角速度 ω${SUB[i]}: `,
       -10, 10, 0.1, params.omega[i],
@@ -505,14 +517,14 @@ function rebuildParamPanel() {
     );
     const sphGrid = document.createElement("div");
     sphGrid.className = "link-grid spherical-slider-group";
-    createSlider(
+    sliderRefs.phi[i] = createSlider(
       sphGrid,
       `方位角 φ${SUB[i]} (°): `,
       -180, 180, 1, (params.phi[i] * 180) / Math.PI,
       (v) => `${v}`,
       (v) => onInitialParamChange("phi", i, (v * Math.PI) / 180),
     );
-    createSlider(
+    sliderRefs.omegaphi[i] = createSlider(
       sphGrid,
       `角速度 ωφ${SUB[i]}: `,
       -10, 10, 0.1, params.omegaphi[i],
@@ -579,6 +591,58 @@ function setLinkCount(n) {
     arr.length = n;
   }
   rebuildParamPanel();
+  rebuildCompareFieldOptions();
+  recreatePendulums();
+}
+
+// 一键随机初始值:θ/ω 全杆随机(球面模式含 φ/ωφ),量化到滑条步长;
+// 对比模式开启时 B 摆自动跟随保持 δ
+function randomizeInitialConditions() {
+  const rand = (min, max) => Math.random() * (max - min) + min;
+  for (let i = 0; i < linkCount; i++) {
+    params.theta[i] = Math.round(rand(-180, 180)) * (Math.PI / 180);
+    params.omega[i] = Math.round(rand(-10, 10) * 10) / 10;
+    if (physicsMode === "spherical") {
+      params.phi[i] = Math.round(rand(-180, 180)) * (Math.PI / 180);
+      params.omegaphi[i] = Math.round(rand(-10, 10) * 10) / 10;
+    }
+  }
+  pendulumA.resetToInitial();
+  clearAllTrails();
+  pendulumA.updateVisuals();
+  if (compare.enabled) compare.resync();
+  syncSlidersFromParams();
+  updateDataDisplay();
+}
+
+function syncSlidersFromParams() {
+  const set = (kind, i, value, format) => {
+    const ref = sliderRefs[kind][i];
+    if (!ref) return;
+    ref.input.value = value;
+    ref.span.textContent = format(value);
+  };
+  const deg = (rad) => Math.round((rad * 180) / Math.PI);
+  for (let i = 0; i < linkCount; i++) {
+    set("theta", i, deg(params.theta[i]), (v) => `${v}`);
+    set("omega", i, params.omega[i], (v) => v.toFixed(1));
+    if (physicsMode === "spherical") {
+      set("phi", i, deg(params.phi[i]), (v) => `${v}`);
+      set("omegaphi", i, params.omegaphi[i], (v) => v.toFixed(1));
+    }
+  }
+}
+
+// 物理模式切换(分段按钮)
+function setPhysicsMode(mode) {
+  if (physicsMode === mode) return;
+  physicsMode = mode;
+  document
+    .querySelectorAll("#mode-segment button")
+    .forEach((btn) => btn.classList.toggle("active", btn.dataset.mode === mode));
+  document
+    .getElementById("control-panel")
+    .classList.toggle("mode-spherical", mode === "spherical");
   rebuildCompareFieldOptions();
   recreatePendulums();
 }
@@ -650,14 +714,15 @@ function setupControls() {
     setLinkCount(n);
   });
 
-  document.getElementById("physics-mode").addEventListener("change", (e) => {
-    physicsMode = e.target.value;
-    document
-      .getElementById("control-panel")
-      .classList.toggle("mode-spherical", physicsMode === "spherical");
-    rebuildCompareFieldOptions();
-    recreatePendulums();
+  document.getElementById("random-btn").addEventListener("click", () => {
+    randomizeInitialConditions();
   });
+
+  document
+    .querySelectorAll("#mode-segment button")
+    .forEach((btn) =>
+      btn.addEventListener("click", () => setPhysicsMode(btn.dataset.mode)),
+    );
 
   document.getElementById("compare-enable").addEventListener("change", (e) => {
     compare.enabled = e.target.checked;

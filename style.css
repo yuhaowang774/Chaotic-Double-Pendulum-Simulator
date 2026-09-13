@@ -221,8 +221,7 @@ body {
 }
 
 #compare-delta,
-#compare-field,
-#physics-mode {
+#compare-field {
   background: var(--bg);
   color: var(--ink);
   border: 1px solid var(--line);
@@ -230,6 +229,72 @@ body {
   padding: 4px 6px;
   font-family: inherit;
   font-size: 0.85em;
+}
+
+/* 物理模式:分段切换(选中反白) */
+
+.segment {
+  display: flex;
+  border: 1px solid var(--ink);
+}
+
+.segment button {
+  flex: 1;
+  padding: 7px 0;
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  border-radius: 0;
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition:
+    background 0.22s var(--ease),
+    color 0.22s var(--ease);
+}
+
+.segment button + button {
+  border-left: 1px solid var(--ink);
+}
+
+.segment button.active {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* 区块头(标题 + 区块级按钮) */
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.section-header h3 {
+  margin-bottom: 0;
+}
+
+#random-btn {
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  font-size: 0.72em;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition:
+    background 0.22s var(--ease),
+    color 0.22s var(--ease),
+    border-color 0.22s var(--ease);
+}
+
+#random-btn:hover {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
 }
 
 #compare-delta {
