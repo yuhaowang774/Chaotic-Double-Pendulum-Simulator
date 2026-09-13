@@ -17,7 +17,6 @@ const TRAIL_TIME_MAX = 600;
 let trailFadeSeconds = 5; // 轨迹留存时长(秒),显示区可调
 const MAX_LINKS = 8;
 const AUTO_ROTATE_IDLE_MS = 3000; // 鼠标无操作多久后恢复自动环绕
-const MANUAL_ROTATE_SPEED = 0.9; // 手动环绕角速度(rad/s)
 const SUB = ["₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈"];
 
 // 调色板:按杆序在色相环上插值(首锤→末锤)
@@ -51,21 +50,7 @@ let lastFrameTime = null;
 let playbackSpeed = 1.0; // 播放速度倍率
 let simDebt = 0; // 未满一个步长的模拟时间结转(慢速/变速时保持节拍精确)
 let autoOrbitEnabled = true; // 自动环绕用户开关
-let manualRotateDir = 0; // 手动环绕方向:-1 左旋 / +1 右旋 / 0 停
 let lastInteraction = -1e9; // 最近一次鼠标交互时间(rAF 时钟)
-let lastCamTime = 0;
-
-const CAMERA_Y_AXIS = new THREE.Vector3(0, 1, 0);
-const camOffset = new THREE.Vector3();
-
-// 绕目标点水平旋转镜头
-function rotateCameraY(angle) {
-  if (!camera) return;
-  camOffset.copy(camera.position).sub(controls.target);
-  camOffset.applyAxisAngle(CAMERA_Y_AXIS, angle);
-  camera.position.copy(controls.target).add(camOffset);
-  camera.lookAt(controls.target);
-}
 
 function markInteraction() {
   lastInteraction = performance.now();
@@ -803,32 +788,6 @@ function setupControls() {
     if (!autoOrbitEnabled) controls.autoRotate = false;
   });
 
-  const bindHold = (id, dir) => {
-    const el = document.getElementById(id);
-    el.addEventListener("pointerdown", () => {
-      manualRotateDir = dir;
-      markInteraction();
-    });
-    const stop = () => {
-      if (manualRotateDir === dir) {
-        manualRotateDir = 0;
-        markInteraction();
-      }
-    };
-    el.addEventListener("pointerup", stop);
-    el.addEventListener("pointerleave", stop);
-    el.addEventListener("pointercancel", stop);
-  };
-  bindHold("cam-left", -1);
-  bindHold("cam-right", 1);
-
-  document.getElementById("cam-reset").addEventListener("click", () => {
-    manualRotateDir = 0;
-    camera.position.set(0, 0, 6);
-    controls.target.set(0, -1, 0);
-    camera.lookAt(controls.target);
-  });
-
   const trailTimeInput = document.getElementById("trail-time");
   trailTimeInput.value = secondsToSlider(trailFadeSeconds);
   document.getElementById("trail-time-value").textContent =
@@ -977,15 +936,9 @@ function init() {
 function animate(currentTime) {
   requestAnimationFrame(animate);
 
-  const camDt = Math.min((currentTime - lastCamTime) / 1000, 0.05);
-  lastCamTime = currentTime;
+  // 自动环绕:开关开启且 3 秒无鼠标操作时生效
   controls.autoRotate =
-    autoOrbitEnabled &&
-    manualRotateDir === 0 &&
-    currentTime - lastInteraction >= AUTO_ROTATE_IDLE_MS;
-  if (manualRotateDir !== 0) {
-    rotateCameraY(manualRotateDir * camDt * MANUAL_ROTATE_SPEED);
-  }
+    autoOrbitEnabled && currentTime - lastInteraction >= AUTO_ROTATE_IDLE_MS;
 
   if (isPlaying) {
     if (lastFrameTime === null) lastFrameTime = currentTime;

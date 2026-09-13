@@ -417,40 +417,6 @@ body {
 
 /* 多杆链:每杆参数卡片(分隔线式,不用色块) */
 
-/* ===== 镜头控制 ===== */
-
-.cam-buttons {
-  display: flex;
-  gap: 6px;
-}
-
-.cam-buttons button {
-  flex: 1;
-  padding: 7px 4px;
-  background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 0;
-  font-size: 0.75em;
-  letter-spacing: 1px;
-  cursor: pointer;
-  user-select: none;
-  touch-action: none;
-  transition:
-    background 0.22s var(--ease),
-    color 0.22s var(--ease),
-    border-color 0.22s var(--ease);
-}
-
-.cam-buttons button:hover {
-  border-color: var(--ink);
-}
-
-.cam-buttons button:active {
-  background: var(--ink);
-  color: var(--bg);
-}
-
 .link-card {
   border-bottom: 1px solid var(--line-soft);
   padding: 8px 0;
