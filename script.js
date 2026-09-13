@@ -11,7 +11,7 @@ import {
 const DT = 0.002;
 const MAX_SUBSTEPS = 100;
 const TRAIL_CAPACITY = 2000;
-const TRAIL_FADE_SECONDS = 5;
+let trailFadeSeconds = 5; // 轨迹留存时长(秒),显示区可调
 const MAX_LINKS = 8;
 const SUB = ["₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈"];
 
@@ -89,7 +89,7 @@ class TrailRing {
   trim(currentTime) {
     while (
       this.count > 0 &&
-      currentTime - this.t[this.head] > TRAIL_FADE_SECONDS
+      currentTime - this.t[this.head] > trailFadeSeconds
     ) {
       this.head = (this.head + 1) % this.capacity;
       this.count--;
@@ -672,6 +672,17 @@ function clearAllTrails() {
   if (pendulumB) pendulumB.clearTrails();
 }
 
+// 留存时长变化时立即重修剪并重绘全部轨迹(暂停状态下也生效)
+function syncAllTrails() {
+  for (const pend of [pendulumA, pendulumB]) {
+    if (!pend) continue;
+    for (const t of pend.trails) {
+      t.ring.trim(simTime);
+      t.sync();
+    }
+  }
+}
+
 // ---------- 控制按钮与数值防护 ----------
 
 function setPlaying(playing) {
@@ -716,6 +727,13 @@ function setupControls() {
     playbackSpeed = parseFloat(e.target.value);
     document.getElementById("speed-value").textContent =
       `${playbackSpeed.toFixed(1)}x`;
+  });
+
+  document.getElementById("trail-time").addEventListener("input", (e) => {
+    trailFadeSeconds = parseFloat(e.target.value);
+    document.getElementById("trail-time-value").textContent =
+      `${trailFadeSeconds.toFixed(1)}s`;
+    syncAllTrails();
   });
 
   document.getElementById("link-count").addEventListener("input", (e) => {

@@ -321,16 +321,19 @@ body {
 
 .compare-legend {
   display: flex;
-  gap: 14px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .compare-legend-item {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.78em;
+  gap: 6px;
+  font-size: 0.75em;
   color: var(--ink-soft);
+  border: 1px solid var(--line-soft);
+  padding: 5px 8px;
 }
 
 .compare-dot {
@@ -351,7 +354,54 @@ body {
 .compare-hint {
   font-size: 0.72em;
   color: var(--muted);
-  margin-top: 6px;
+  border-left: 2px solid var(--line-soft);
+  padding-left: 8px;
+  margin-top: 10px;
+}
+
+/* 拨动开关:锐角矩形,选中反白 */
+
+.switch {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-track {
+  display: block;
+  width: 34px;
+  height: 16px;
+  border: 1px solid var(--ink);
+  background: transparent;
+  transition: background 0.22s var(--ease);
+}
+
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  background: var(--ink);
+  transition:
+    transform 0.22s var(--ease),
+    background 0.22s var(--ease);
+}
+
+.switch input:checked + .switch-track {
+  background: var(--ink);
+}
+
+.switch input:checked + .switch-track .switch-knob {
+  background: var(--bg);
+  transform: translateX(14px);
 }
 
 #numerical-warning {

@@ -49,11 +49,25 @@
           <div id="links-initial" class="advanced-only"></div>
         </div>
 
-        <div class="control-group">
-          <label>
-            <input type="checkbox" id="show-trail" checked />
-            显示轨迹
-          </label>
+        <div class="param-section">
+          <h3>显示</h3>
+          <div class="control-group">
+            <label>
+              <input type="checkbox" id="show-trail" checked />
+              显示轨迹
+            </label>
+          </div>
+          <div class="control-group">
+            <label>轨迹留存: <span id="trail-time-value">5.0s</span></label>
+            <input
+              type="range"
+              id="trail-time"
+              min="0.5"
+              max="30"
+              step="0.5"
+              value="5"
+            />
+          </div>
         </div>
 
         <div class="button-group">
@@ -74,7 +88,13 @@
         </div>
 
         <div class="param-section">
-          <h3>混沌对比</h3>
+          <div class="section-header">
+            <h3>混沌对比</h3>
+            <label class="switch" title="启用对比摆 B">
+              <input type="checkbox" id="compare-enable" />
+              <span class="switch-track"><span class="switch-knob"></span></span>
+            </label>
+          </div>
           <div class="compare-legend">
             <span class="compare-legend-item">
               <span class="compare-dot compare-dot-a"></span>A 摆
@@ -82,12 +102,6 @@
             <span class="compare-legend-item">
               <span class="compare-dot compare-dot-b"></span>B 摆
             </span>
-          </div>
-          <div class="control-group">
-            <label>
-              <input type="checkbox" id="compare-enable" />
-              启用对比摆 B
-            </label>
           </div>
           <div id="compare-details" class="advanced-only">
             <div class="control-group">
