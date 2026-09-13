@@ -13,6 +13,7 @@ const MAX_SUBSTEPS = 100;
 const TRAIL_CAPACITY = 2000;
 let trailFadeSeconds = 5; // 轨迹留存时长(秒),显示区可调
 const MAX_LINKS = 8;
+const AUTO_ROTATE_IDLE_MS = 3000; // 鼠标无操作多久后恢复自动环绕
 const SUB = ["₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈"];
 
 // 调色板:按杆序在色相环上插值(首锤→末锤)
@@ -836,6 +837,28 @@ function init() {
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
   controls.target.set(0, -1, 0);
+
+  // 空闲自动环绕:鼠标按下(画布/面板)或滚轮缩放时暂停,
+  // 松手 3 秒无操作后恢复慢速环绕
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.8;
+  let autoRotateTimer = null;
+  const pauseAutoRotate = () => {
+    controls.autoRotate = false;
+    clearTimeout(autoRotateTimer);
+  };
+  const scheduleAutoRotate = () => {
+    clearTimeout(autoRotateTimer);
+    autoRotateTimer = setTimeout(() => {
+      controls.autoRotate = true;
+    }, AUTO_ROTATE_IDLE_MS);
+  };
+  renderer.domElement.addEventListener("pointerdown", pauseAutoRotate);
+  renderer.domElement.addEventListener("wheel", pauseAutoRotate, { passive: true });
+  document
+    .getElementById("control-panel")
+    .addEventListener("pointerdown", pauseAutoRotate);
+  window.addEventListener("pointerup", scheduleAutoRotate);
 
   scene.add(new THREE.AmbientLight(0x404040, 0.6));
   const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
