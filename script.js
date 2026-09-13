@@ -10,8 +10,8 @@ import {
 
 const DT = 0.002;
 const MAX_SUBSTEPS = 100;
-const TRAIL_CAPACITY = 36000; // 单条轨迹容量:0.02s 间隔 × 600s ≈ 30000 点,留余量
-const TRAIL_PUSH_INTERVAL = 0.02; // 轨迹采点间隔(模拟时间秒),与帧率/速度无关
+const TRAIL_CAPACITY = 80000; // 单条轨迹容量:0.008s 间隔 × 600s = 75000 点,留余量
+const TRAIL_PUSH_INTERVAL = 0.008; // 轨迹采点间隔(模拟时间秒),125 点/秒保证光滑
 const TRAIL_TIME_MIN = 0.5; // 轨迹留存范围(秒),滑条为对数刻度
 const TRAIL_TIME_MAX = 600;
 let trailFadeSeconds = 5; // 轨迹留存时长(秒),显示区可调
