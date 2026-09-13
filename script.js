@@ -39,6 +39,7 @@ let scene, camera, renderer, controls;
 let pendulumA = null;
 let pendulumB = null; // 混沌对比模式的 B 摆
 let physicsMode = "planar"; // "planar" | "spherical"
+let uiLevel = "simple"; // "simple" | "advanced"
 let simTime = 0;
 let isPlaying = false;
 let lastFrameTime = null;
@@ -731,6 +732,20 @@ function setupControls() {
     .querySelectorAll("#mode-segment button")
     .forEach((btn) =>
       btn.addEventListener("click", () => setPhysicsMode(btn.dataset.mode)),
+    );
+
+  document
+    .querySelectorAll("#ui-level-segment button")
+    .forEach((btn) =>
+      btn.addEventListener("click", () => {
+        uiLevel = btn.dataset.level;
+        document
+          .querySelectorAll("#ui-level-segment button")
+          .forEach((b) => b.classList.toggle("active", b === btn));
+        document
+          .getElementById("control-panel")
+          .classList.toggle("ui-advanced", uiLevel === "advanced");
+      }),
     );
 
   document.getElementById("compare-enable").addEventListener("change", (e) => {

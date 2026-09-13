@@ -402,6 +402,16 @@ body {
   display: grid;
 }
 
+/* ===== 界面分级:简单(默认,仅核心操作)/ 高级(全部控制) ===== */
+
+.advanced-only {
+  display: none;
+}
+
+#control-panel.ui-advanced .advanced-only {
+  display: block;
+}
+
 @media (max-width: 480px) {
   #compare-delta {
     width: 64px;

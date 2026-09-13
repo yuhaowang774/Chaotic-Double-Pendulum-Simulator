@@ -9,8 +9,14 @@
   <body>
     <div id="container">
       <div id="control-panel">
-        <h2>混沌双摆参数控制</h2>
-    <div id="numerical-warning" style="display: none;"></div>
+      <h2>混沌双摆参数控制</h2>
+      <div id="numerical-warning" style="display: none;"></div>
+      <div class="control-group">
+        <div class="segment" id="ui-level-segment">
+          <button type="button" data-level="simple" class="active">简单</button>
+          <button type="button" data-level="advanced">高级</button>
+        </div>
+      </div>
 
         <div class="param-section">
           <h3>摆参数</h3>
@@ -32,7 +38,7 @@
               value="2"
             />
           </div>
-          <div id="links-params"></div>
+          <div id="links-params" class="advanced-only"></div>
         </div>
 
         <div class="param-section">
@@ -40,7 +46,7 @@
             <h3>初始条件</h3>
             <button type="button" id="random-btn">随机初始值</button>
           </div>
-          <div id="links-initial"></div>
+          <div id="links-initial" class="advanced-only"></div>
         </div>
 
         <div class="control-group">
@@ -83,32 +89,34 @@
               启用对比摆 B
             </label>
           </div>
-          <div class="control-group">
-            <label>初始差值 δ: <input type="number" id="compare-delta" value="0.1" min="0" step="0.1" /></label>
-          </div>
-          <div class="control-group">
-            <label>施加变量:
-              <select id="compare-field">
-                <option value="theta1" selected>角度 θ₁</option>
-                <option value="theta2">角度 θ₂</option>
-                <option value="omega1">角速度 ω₁</option>
-                <option value="omega2">角速度 ω₂</option>
-              </select>
-            </label>
-          </div>
-          <div class="control-group">
-            <button id="compare-resync">重新同步 B</button>
-          </div>
-          <div id="compare-readout" style="display: none;">
-            <p>|Δθ| 首锤: <span id="delta-theta-first">--</span> °</p>
-            <p>|Δθ| 末锤: <span id="delta-theta-last">--</span> °</p>
+          <div id="compare-details" class="advanced-only">
+            <div class="control-group">
+              <label>初始差值 δ: <input type="number" id="compare-delta" value="0.1" min="0" step="0.1" /></label>
+            </div>
+            <div class="control-group">
+              <label>施加变量:
+                <select id="compare-field">
+                  <option value="theta1" selected>角度 θ₁</option>
+                  <option value="theta2">角度 θ₂</option>
+                  <option value="omega1">角速度 ω₁</option>
+                  <option value="omega2">角速度 ω₂</option>
+                </select>
+              </label>
+            </div>
+            <div class="control-group">
+              <button id="compare-resync">重新同步 B</button>
+            </div>
+            <div id="compare-readout" style="display: none;">
+              <p>|Δθ| 首锤: <span id="delta-theta-first">--</span> °</p>
+              <p>|Δθ| 末锤: <span id="delta-theta-last">--</span> °</p>
+            </div>
           </div>
           <p class="compare-hint">A/B 仅一个初值相差 δ,观察轨迹如何分裂。</p>
         </div>
 
         <div class="data-display">
           <h3>实时数据</h3>
-          <div id="links-data"></div>
+          <div id="links-data" class="advanced-only"></div>
           <p>总能量 E: <span id="total-energy">--</span> J</p>
           <p>运行时间: <span id="run-time">--</span> s</p>
         </div>
