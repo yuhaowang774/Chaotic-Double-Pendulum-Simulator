@@ -1,13 +1,31 @@
+/* ============================================================
+   SpaceX 风格设计系统
+   纯黑背景 #000000 · 高对比白字 #F0F0FA · 锐利矩形 · 单色调
+   色彩仅用于摆体内容(轨迹/图例),界面框架一律黑白灰
+   动效统一 cubic-bezier(0.19, 1, 0.22, 1)
+   ============================================================ */
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+:root {
+  --bg: #000000;
+  --ink: #f0f0fa;
+  --ink-soft: rgba(240, 240, 250, 0.9);
+  --muted: #808080;
+  --line: rgba(240, 240, 250, 0.35);
+  --line-soft: rgba(240, 240, 250, 0.15);
+  --ease: cubic-bezier(0.19, 1, 0.22, 1);
+  --mono: Consolas, "Courier New", monospace;
+}
+
 body {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: #1a1a2e;
-  color: #eee;
+  font-family: "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
   overflow: hidden;
 }
 
@@ -20,34 +38,49 @@ body {
 #control-panel {
   width: 300px;
   min-width: 300px;
-  background: #16213e;
-  padding: 15px;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+  padding: 16px;
   overflow-y: auto;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+}
+
+#control-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+#control-panel::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+#control-panel::-webkit-scrollbar-thumb {
+  background: var(--line);
 }
 
 #control-panel h2 {
-  text-align: center;
-  margin-bottom: 15px;
-  color: #4fc3f7;
-  font-size: 1.2em;
-  border-bottom: 2px solid #4fc3f7;
-  padding-bottom: 8px;
+  text-align: left;
+  margin-bottom: 16px;
+  color: var(--ink);
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 3px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
 }
 
+/* 区块:不再使用填充色块,以 1px 分隔线划分 */
+
 .param-section {
-  background: #0f3460;
-  border-radius: 6px;
-  padding: 10px;
-  margin-bottom: 12px;
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+  margin-bottom: 0;
 }
 
 .param-section h3 {
-  color: #4fc3f7;
-  font-size: 0.95em;
+  color: var(--ink);
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 2px;
   margin-bottom: 10px;
-  padding-bottom: 5px;
-  border-bottom: 1px solid #1a4a7a;
 }
 
 .control-group {
@@ -57,22 +90,23 @@ body {
 .control-group label {
   display: block;
   margin-bottom: 5px;
-  font-size: 0.85em;
-  color: #b0bec5;
+  font-size: 0.78em;
+  color: var(--ink-soft);
 }
 
 .control-group label span {
-  color: #4fc3f7;
-  font-weight: bold;
+  color: var(--ink);
+  font-weight: 700;
+  font-family: var(--mono);
 }
 
 .control-group input[type="range"] {
   width: 100%;
-  height: 5px;
+  height: 2px;
   -webkit-appearance: none;
   appearance: none;
-  background: #1a4a7a;
-  border-radius: 3px;
+  background: var(--line);
+  border-radius: 0;
   outline: none;
   cursor: pointer;
 }
@@ -80,22 +114,25 @@ body {
 .control-group input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
-  background: #4fc3f7;
-  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+  background: var(--ink);
+  border-radius: 0;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: transform 0.22s var(--ease);
 }
 
 .control-group input[type="range"]::-webkit-slider-thumb:hover {
-  background: #81d4fa;
+  transform: scale(1.3);
 }
 
 .control-group input[type="checkbox"] {
   margin-right: 8px;
   cursor: pointer;
+  accent-color: var(--ink);
 }
+
+/* 按钮:锐利矩形,线框 + 悬停反白 */
 
 .button-group {
   display: flex;
@@ -106,62 +143,49 @@ body {
 .button-group button {
   flex: 1;
   padding: 10px 12px;
-  border: none;
-  border-radius: 5px;
-  font-size: 0.9em;
-  font-weight: bold;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 3px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition:
+    background 0.22s var(--ease),
+    color 0.22s var(--ease);
 }
 
-#play-btn {
-  background: #00c853;
-  color: #fff;
+.button-group button:hover {
+  background: var(--ink);
+  color: var(--bg);
 }
 
-#play-btn:hover {
-  background: #69f0ae;
-}
-
-#pause-btn {
-  background: #ff9100;
-  color: #fff;
-}
-
-#pause-btn:hover {
-  background: #ffab40;
-}
-
-#reset-btn {
-  background: #e53935;
-  color: #fff;
-}
-
-#reset-btn:hover {
-  background: #ff6f60;
-}
+/* 数据读数:等宽字体 */
 
 .data-display {
-  background: #0f3460;
-  border-radius: 6px;
-  padding: 12px;
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
 }
 
 .data-display h3 {
-  color: #4fc3f7;
+  color: var(--ink);
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 2px;
   margin-bottom: 10px;
-  font-size: 0.95em;
 }
 
 .data-display p {
-  margin-bottom: 6px;
-  font-size: 0.8em;
-  color: #b0bec5;
+  margin-bottom: 4px;
+  font-size: 0.75em;
+  color: var(--muted);
 }
 
 .data-display p span {
-  color: #fff;
-  font-weight: bold;
+  color: var(--ink);
+  font-weight: 700;
+  font-family: var(--mono);
 }
 
 #canvas-container {
@@ -173,49 +197,61 @@ body {
   display: block;
 }
 
-/* ===== 混沌对比模式(Task 5 新增)===== */
+/* 混沌对比 */
 
 #compare-resync {
   width: 100%;
   padding: 8px;
-  border: none;
-  border-radius: 5px;
-  background: #7e57c2;
-  color: #fff;
-  font-weight: bold;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  font-weight: 700;
+  font-size: 0.82em;
+  letter-spacing: 3px;
   cursor: pointer;
+  transition:
+    background 0.22s var(--ease),
+    color 0.22s var(--ease);
 }
 
 #compare-resync:hover {
-  background: #9575cd;
+  background: var(--ink);
+  color: var(--bg);
+}
+
+#compare-delta,
+#compare-field,
+#physics-mode {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 0.85em;
 }
 
 #compare-delta {
   width: 80px;
-  background: #1a4a7a;
-  color: #fff;
-  border: 1px solid #4fc3f7;
-  border-radius: 4px;
-  padding: 3px 6px;
+  font-family: var(--mono);
 }
 
-#compare-field {
-  background: #1a4a7a;
-  color: #fff;
-  border: 1px solid #4fc3f7;
-  border-radius: 4px;
-  padding: 3px 6px;
+#compare-field,
+#physics-mode {
+  max-width: 100%;
 }
 
 #compare-readout p {
   margin-bottom: 4px;
-  font-size: 0.8em;
-  color: #b0bec5;
+  font-size: 0.78em;
+  color: var(--muted);
 }
 
 #compare-readout p span {
-  color: #fff;
-  font-weight: bold;
+  color: var(--ink);
+  font-weight: 700;
+  font-family: var(--mono);
 }
 
 .compare-legend {
@@ -228,14 +264,14 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.8em;
-  color: #b0bec5;
+  font-size: 0.78em;
+  color: var(--ink-soft);
 }
 
 .compare-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 0;
   display: inline-block;
 }
 
@@ -248,51 +284,34 @@ body {
 }
 
 .compare-hint {
-  font-size: 0.75em;
-  opacity: 0.7;
+  font-size: 0.72em;
+  color: var(--muted);
   margin-top: 6px;
 }
 
 #numerical-warning {
-  color: #ff5252;
-  font-weight: 600;
-  font-size: 0.85em;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 0.78em;
+  letter-spacing: 1px;
+  border: 1px solid var(--ink);
+  padding: 6px 8px;
   margin-bottom: 10px;
 }
 
-@media (max-width: 480px) {
-  #compare-delta {
-    width: 64px;
-  }
-
-  #compare-field {
-    max-width: 140px;
-  }
-}
-
-/* ===== 物理模式切换(球面模式新增)===== */
-
-#physics-mode {
-  background: #1a4a7a;
-  color: #fff;
-  border: 1px solid #4fc3f7;
-  border-radius: 4px;
-  padding: 3px 6px;
-  width: 100%;
-}
-
-/* ===== 多杆链:每杆参数卡片 ===== */
+/* 多杆链:每杆参数卡片(分隔线式,不用色块) */
 
 .link-card {
-  background: #0f3460;
-  border-radius: 6px;
-  padding: 8px;
-  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+  padding: 8px 0;
+  margin-bottom: 4px;
 }
 
 .link-card h4 {
-  color: #4fc3f7;
-  font-size: 0.85em;
+  color: var(--muted);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 2px;
   margin-bottom: 6px;
 }
 
@@ -311,9 +330,19 @@ body {
   grid-column: 1 / -1;
   margin-top: 4px;
   padding-top: 6px;
-  border-top: 1px dashed #1a4a7a;
+  border-top: 1px dashed var(--line-soft);
 }
 
 #control-panel.mode-spherical .spherical-slider-group {
   display: grid;
+}
+
+@media (max-width: 480px) {
+  #compare-delta {
+    width: 64px;
+  }
+
+  #compare-field {
+    max-width: 140px;
+  }
 }

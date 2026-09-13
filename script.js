@@ -584,7 +584,7 @@ function setLinkCount(n) {
 }
 
 function recreatePendulums() {
-  isPlaying = false;
+  setPlaying(false);
   simTime = 0;
   if (pendulumA) pendulumA.dispose(scene);
   if (pendulumB) {
@@ -607,17 +607,20 @@ function clearAllTrails() {
 
 // ---------- 控制按钮与数值防护 ----------
 
-function onPlay() {
-  isPlaying = true;
-  hideWarning();
+function setPlaying(playing) {
+  isPlaying = playing;
+  document.getElementById("play-toggle-btn").textContent = playing
+    ? "暂停"
+    : "播放";
 }
 
-function onPause() {
-  isPlaying = false;
+function togglePlay() {
+  setPlaying(!isPlaying);
+  if (isPlaying) hideWarning();
 }
 
 function onReset() {
-  isPlaying = false;
+  setPlaying(false);
   simTime = 0;
   pendulumA.resetToInitial();
   clearAllTrails();
@@ -627,7 +630,7 @@ function onReset() {
 }
 
 function pauseSimulation(message) {
-  isPlaying = false;
+  setPlaying(false);
   const warn = document.getElementById("numerical-warning");
   warn.textContent = message;
   warn.style.display = "block";
@@ -638,8 +641,7 @@ function hideWarning() {
 }
 
 function setupControls() {
-  document.getElementById("play-btn").addEventListener("click", onPlay);
-  document.getElementById("pause-btn").addEventListener("click", onPause);
+  document.getElementById("play-toggle-btn").addEventListener("click", togglePlay);
   document.getElementById("reset-btn").addEventListener("click", onReset);
 
   document.getElementById("link-count").addEventListener("input", (e) => {
@@ -703,7 +705,7 @@ function init() {
   const container = document.getElementById("canvas-container");
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1a2e);
+  scene.background = new THREE.Color(0x000000);
 
   camera = new THREE.PerspectiveCamera(
     60,
@@ -738,10 +740,6 @@ function init() {
     }),
   );
   scene.add(pivot);
-
-  const gridHelper = new THREE.GridHelper(10, 20, 0x4fc3f7, 0x0f3460);
-  gridHelper.position.y = -3;
-  scene.add(gridHelper);
 
   rebuildParamPanel();
   rebuildCompareFieldOptions();
