@@ -151,38 +151,7 @@ class TrailLine {
 
 // ---------- 摆体(N 杆) ----------
 
-// ---------- 辉光与摆体材质 ----------
-
-let glowTexture = null;
-function getGlowTexture() {
-  if (!glowTexture) {
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 128;
-    const ctx = canvas.getContext("2d");
-    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    grad.addColorStop(0, "rgba(255,255,255,0.9)");
-    grad.addColorStop(0.3, "rgba(255,255,255,0.32)");
-    grad.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 128, 128);
-    glowTexture = new THREE.CanvasTexture(canvas);
-  }
-  return glowTexture;
-}
-
-function makeGlowSprite(color, scale) {
-  const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: getGlowTexture(),
-      color,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  );
-  sprite.scale.set(scale, scale, 1);
-  return sprite;
-}
+// ---------- 摆体材质 ----------
 
 const ROD_UP = new THREE.Vector3(0, 1, 0);
 const rodDir = new THREE.Vector3();
@@ -206,7 +175,6 @@ class Pendulum {
     this.rodGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1, 12);
     this.rods = [];
     this.bobs = [];
-    this.glows = [];
     this.trails = [];
     this.tip = [];
     for (let i = 0; i < n; i++) {
@@ -214,13 +182,10 @@ class Pendulum {
       scene.add(rod);
       this.rods.push(rod);
 
-      const color = linkColor(this.palette, i, n);
       const bob = new THREE.Mesh(
         new THREE.SphereGeometry(0.1, 24, 24),
         new THREE.MeshStandardMaterial({
-          color,
-          emissive: color,
-          emissiveIntensity: 0.45,
+          color: linkColor(this.palette, i, n),
           metalness: 0.55,
           roughness: 0.3,
         }),
@@ -228,11 +193,7 @@ class Pendulum {
       scene.add(bob);
       this.bobs.push(bob);
 
-      const glow = makeGlowSprite(color, 0.5);
-      scene.add(glow);
-      this.glows.push(glow);
-
-      this.trails.push(new TrailLine(scene, color));
+      this.trails.push(new TrailLine(scene, linkColor(this.palette, i, n)));
       this.tip.push([0, 0, 0]);
     }
     this.resetToInitial();
@@ -304,7 +265,6 @@ class Pendulum {
       }
       rod.scale.set(1, len, 1);
       this.bobs[i].position.set(pos[0], pos[1], pos[2]);
-      this.glows[i].position.set(pos[0], pos[1], pos[2]);
       this.tip[i] = pos;
       prev = pos;
     }
@@ -333,10 +293,6 @@ class Pendulum {
       scene.remove(bob);
       bob.geometry.dispose();
       bob.material.dispose();
-    }
-    for (const glow of this.glows) {
-      scene.remove(glow);
-      glow.material.dispose();
     }
     for (const t of this.trails) t.dispose(scene);
   }
@@ -898,7 +854,6 @@ function init() {
     }),
   );
   scene.add(pivot);
-  scene.add(makeGlowSprite(0xf0f0fa, 0.3));
 
   // 网格地面:单色暗灰,提供 3D 深度参照
   const gridHelper = new THREE.GridHelper(10, 20, 0x555555, 0x222222);
