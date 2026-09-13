@@ -309,7 +309,6 @@ class Pendulum {
       t.sync();
     }
   }
-  }
 
   clearTrails() {
     for (const t of this.trails) t.clear();
