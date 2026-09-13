@@ -7,89 +7,138 @@
 //   c_i  = Σ_j β_ij·sin(θ_i−θ_j)·ω_j²      (科氏/离心)
 //   g_i  = G·sinθ_i·L_i·Σ_{k≥i} m_k        (重力矩)
 // N=2 时与两杆专用方程代数等价;N=1 退化为单摆。
+//
+// 性能:按杆数缓存 Float64Array 工作区,RK4 与高斯消元热路径零分配。
 
 export const G = 9.8;
 
-// 高斯消元求线方程(部分主元);M 需非奇异(质量与杆长均为正时动能矩阵正定)。
-export function solveLinear(M, b) {
-  const n = b.length;
-  const A = M.map((row, i) => [...row, b[i]]);
+const workspaces = new Map();
+
+function getWork(n) {
+  let w = workspaces.get(n);
+  if (!w) {
+    w = {
+      suffix: new Float64Array(n),
+      m: new Float64Array(n * n),
+      b: new Float64Array(n),
+      aug: new Float64Array(n * (n + 1)),
+      k: Array.from({ length: 4 }, () => ({
+        dtheta: new Array(n).fill(0),
+        domega: new Array(n).fill(0),
+      })),
+      mid: Array.from({ length: 3 }, () => ({
+        theta: new Array(n).fill(0),
+        omega: new Array(n).fill(0),
+      })),
+    };
+    workspaces.set(n, w);
+  }
+  return w;
+}
+
+// 高斯消元(部分主元):增广 aug = [m | b],解写入 x。零分配。
+// 供本模块与球面模块复用(球面约束矩阵为三对角,同样走此求解器)。
+export function solveInto(m, b, n, aug, x) {
+  const stride = n + 1;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) aug[r * stride + c] = m[r * n + c];
+    aug[r * stride + n] = b[r];
+  }
   for (let col = 0; col < n; col++) {
     let piv = col;
     for (let r = col + 1; r < n; r++) {
-      if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+      if (Math.abs(aug[r * stride + col]) > Math.abs(aug[piv * stride + col])) {
+        piv = r;
+      }
     }
-    [A[col], A[piv]] = [A[piv], A[col]];
-    const d = A[col][col];
-    if (Math.abs(d) < 1e-14) throw new Error("线性方程组奇异");
+    if (piv !== col) {
+      for (let c = col; c < stride; c++) {
+        const tmp = aug[col * stride + c];
+        aug[col * stride + c] = aug[piv * stride + c];
+        aug[piv * stride + c] = tmp;
+      }
+    }
+    const d = aug[col * stride + col];
     for (let r = col + 1; r < n; r++) {
-      const f = A[r][col] / d;
-      for (let c = col; c <= n; c++) A[r][c] -= f * A[col][c];
+      const f = aug[r * stride + col] / d;
+      if (f !== 0) {
+        for (let c = col; c < stride; c++) {
+          aug[r * stride + c] -= f * aug[col * stride + c];
+        }
+      }
     }
   }
-  const x = new Array(n).fill(0);
   for (let r = n - 1; r >= 0; r--) {
-    let s = A[r][n];
-    for (let c = r + 1; c < n; c++) s -= A[r][c] * x[c];
-    x[r] = s / A[r][r];
+    let s = aug[r * stride + n];
+    for (let c = r + 1; c < n; c++) s -= aug[r * stride + c] * x[c];
+    x[r] = s / aug[r * stride + r];
   }
-  return x;
 }
 
-function suffixMasses(p) {
-  const n = p.masses.length;
-  const suffix = new Array(n);
+function derivativesInto(s, p, w, out) {
+  const n = w.suffix.length;
+  const suffix = w.suffix;
   suffix[n - 1] = p.masses[n - 1];
   for (let i = n - 2; i >= 0; i--) suffix[i] = suffix[i + 1] + p.masses[i];
-  return suffix;
-}
-
-/**
- * 运动方程右端项。
- * @param {{theta:number[], omega:number[]}} s 状态(弧度 / rad/s)
- * @param {{masses:number[], lengths:number[]}} p 参数(kg / m)
- * @returns {{dtheta:number[], domega:number[]}} dtheta = ω,domega = 角加速度
- */
-export function derivatives(s, p) {
-  const n = s.theta.length;
-  const suffix = suffixMasses(p);
-  const M = [];
-  const b = [];
   for (let i = 0; i < n; i++) {
-    const row = new Array(n);
     let rhs = -G * Math.sin(s.theta[i]) * p.lengths[i] * suffix[i];
     for (let j = 0; j < n; j++) {
       const beta = p.lengths[i] * p.lengths[j] * suffix[Math.max(i, j)];
       const delta = s.theta[i] - s.theta[j];
-      row[j] = beta * Math.cos(delta);
+      w.m[i * n + j] = beta * Math.cos(delta);
       rhs -= beta * Math.sin(delta) * s.omega[j] * s.omega[j];
     }
-    M.push(row);
-    b.push(rhs);
+    w.b[i] = rhs;
   }
-  return { dtheta: [...s.omega], domega: solveLinear(M, b) };
+  solveInto(w.m, w.b, n, w.aug, out.domega);
+  for (let i = 0; i < n; i++) out.dtheta[i] = s.omega[i];
 }
 
 /**
- * RK4 单步积分,原地更新 state。
+ * 运动方程右端项(每次调用返回新对象,供测试/外部使用;
+ * 热路径请用 rk4Step,其内部走零分配工作区)。
+ */
+export function derivatives(s, p) {
+  const n = s.theta.length;
+  const w = getWork(n);
+  const out = { dtheta: new Array(n), domega: new Array(n) };
+  derivativesInto(s, p, w, out);
+  return out;
+}
+
+/**
+ * RK4 单步积分,原地更新 state。热路径零分配。
  */
 export function rk4Step(state, params, dt) {
-  const k1 = derivatives(state, params);
-  const mid = (k, h) => ({
-    theta: state.theta.map((v, i) => v + h * k.dtheta[i]),
-    omega: state.omega.map((v, i) => v + h * k.domega[i]),
-  });
-  const k2 = derivatives(mid(k1, dt / 2), params);
-  const k3 = derivatives(mid(k2, dt / 2), params);
-  const k4 = derivatives(mid(k3, dt), params);
+  const n = state.theta.length;
+  const w = getWork(n);
+  const [k1, k2, k3, k4] = w.k;
+  const [s2, s3, s4] = w.mid;
+
+  derivativesInto(state, params, w, k1);
+  for (let i = 0; i < n; i++) {
+    s2.theta[i] = state.theta[i] + (dt / 2) * k1.dtheta[i];
+    s2.omega[i] = state.omega[i] + (dt / 2) * k1.domega[i];
+  }
+  derivativesInto(s2, params, w, k2);
+  for (let i = 0; i < n; i++) {
+    s3.theta[i] = state.theta[i] + (dt / 2) * k2.dtheta[i];
+    s3.omega[i] = state.omega[i] + (dt / 2) * k2.domega[i];
+  }
+  derivativesInto(s3, params, w, k3);
+  for (let i = 0; i < n; i++) {
+    s4.theta[i] = state.theta[i] + dt * k3.dtheta[i];
+    s4.omega[i] = state.omega[i] + dt * k3.domega[i];
+  }
+  derivativesInto(s4, params, w, k4);
 
   const h = dt / 6;
-  state.theta = state.theta.map(
-    (v, i) => v + h * (k1.dtheta[i] + 2 * k2.dtheta[i] + 2 * k3.dtheta[i] + k4.dtheta[i]),
-  );
-  state.omega = state.omega.map(
-    (v, i) => v + h * (k1.domega[i] + 2 * k2.domega[i] + 2 * k3.domega[i] + k4.domega[i]),
-  );
+  for (let i = 0; i < n; i++) {
+    state.theta[i] +=
+      h * (k1.dtheta[i] + 2 * k2.dtheta[i] + 2 * k3.dtheta[i] + k4.dtheta[i]);
+    state.omega[i] +=
+      h * (k1.domega[i] + 2 * k2.domega[i] + 2 * k3.domega[i] + k4.domega[i]);
+  }
   return state;
 }
 
@@ -100,12 +149,17 @@ export function rk4Step(state, params, dt) {
  */
 export function totalEnergy(s, p) {
   const n = s.theta.length;
-  const suffix = suffixMasses(p);
+  const w = getWork(n);
+  const suffix = w.suffix;
+  suffix[n - 1] = p.masses[n - 1];
+  for (let i = n - 2; i >= 0; i--) suffix[i] = suffix[i + 1] + p.masses[i];
   let kinetic = 0;
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
-      const beta = p.lengths[i] * p.lengths[j] * suffix[Math.max(i, j)];
-      kinetic += beta * Math.cos(s.theta[i] - s.theta[j]) * s.omega[i] * s.omega[j];
+      const beta =
+        p.lengths[i] * p.lengths[j] * suffix[Math.max(i, j)];
+      kinetic +=
+        beta * Math.cos(s.theta[i] - s.theta[j]) * s.omega[i] * s.omega[j];
     }
   }
   kinetic *= 0.5;
