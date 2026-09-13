@@ -10,7 +10,10 @@ import {
 
 const DT = 0.002;
 const MAX_SUBSTEPS = 100;
-const TRAIL_CAPACITY = 2000;
+const TRAIL_CAPACITY = 36000; // 单条轨迹容量:0.02s 间隔 × 600s ≈ 30000 点,留余量
+const TRAIL_PUSH_INTERVAL = 0.02; // 轨迹采点间隔(模拟时间秒),与帧率/速度无关
+const TRAIL_TIME_MIN = 0.5; // 轨迹留存范围(秒),滑条为对数刻度
+const TRAIL_TIME_MAX = 600;
 let trailFadeSeconds = 5; // 轨迹留存时长(秒),显示区可调
 const MAX_LINKS = 8;
 const AUTO_ROTATE_IDLE_MS = 3000; // 鼠标无操作多久后恢复自动环绕
@@ -66,9 +69,7 @@ const sliderRefs = {
 class TrailRing {
   constructor(capacity) {
     this.capacity = capacity;
-    this.x = new Float32Array(capacity);
-    this.y = new Float32Array(capacity);
-    this.z = new Float32Array(capacity);
+    this.data = new Float32Array(capacity * 3); // x,y,z 交错存储,便于整段拷贝
     this.t = new Float64Array(capacity);
     this.head = 0;
     this.count = 0;
@@ -76,15 +77,15 @@ class TrailRing {
 
   push(x, y, z, time) {
     const idx = (this.head + this.count) % this.capacity;
+    this.data[idx * 3] = x;
+    this.data[idx * 3 + 1] = y;
+    this.data[idx * 3 + 2] = z;
+    this.t[idx] = time;
     if (this.count < this.capacity) {
       this.count++;
     } else {
       this.head = (this.head + 1) % this.capacity;
     }
-    this.x[idx] = x;
-    this.y[idx] = y;
-    this.z[idx] = z;
-    this.t[idx] = time;
   }
 
   trim(currentTime) {
@@ -126,16 +127,24 @@ class TrailLine {
   }
 
   // 把环形缓冲按“旧→新”顺序摊平进 geometry
+  // 环形缓冲拆成两段连续内存,用 set() 原生拷贝(数万点下远快于逐点循环)
   sync() {
     const { ring, positions } = this;
-    for (let i = 0; i < ring.count; i++) {
-      const src = (ring.head + i) % ring.capacity;
-      positions[i * 3] = ring.x[src];
-      positions[i * 3 + 1] = ring.y[src];
-      positions[i * 3 + 2] = ring.z[src];
+    const n = ring.count;
+    if (n === 0) {
+      this.line.geometry.setDrawRange(0, 0);
+      return;
+    }
+    const firstLen = Math.min(n, ring.capacity - ring.head);
+    positions.set(
+      ring.data.subarray(ring.head * 3, (ring.head + firstLen) * 3),
+      0,
+    );
+    if (n > firstLen) {
+      positions.set(ring.data.subarray(0, (n - firstLen) * 3), firstLen * 3);
     }
     this.line.geometry.attributes.position.needsUpdate = true;
-    this.line.geometry.setDrawRange(0, ring.count);
+    this.line.geometry.setDrawRange(0, n);
   }
 
   clear() {
@@ -217,6 +226,7 @@ class Pendulum {
 
   resetToInitial() {
     this.state = this.makeInitialState();
+    this.lastTrailPush = -Infinity; // 重置后立即允许采点
   }
 
   step() {
@@ -236,7 +246,7 @@ class Pendulum {
     );
   }
 
-  updateVisuals() {
+  computeTipPositions() {
     let prev = [0, 0, 0];
     for (let i = 0; i < this.n; i++) {
       let pos;
@@ -249,6 +259,16 @@ class Pendulum {
       } else {
         pos = [...this.state.p[i]];
       }
+      this.tip[i] = pos;
+      prev = pos;
+    }
+  }
+
+  updateVisuals() {
+    this.computeTipPositions();
+    let prev = [0, 0, 0];
+    for (let i = 0; i < this.n; i++) {
+      const pos = this.tip[i];
       // 圆柱杆:中点定位 + 单位向量定向 + 长度缩放
       const rod = this.rods[i];
       const dx = pos[0] - prev[0];
@@ -266,20 +286,29 @@ class Pendulum {
       }
       rod.scale.set(1, len, 1);
       this.bobs[i].position.set(pos[0], pos[1], pos[2]);
-      this.tip[i] = pos;
       prev = pos;
     }
   }
 
-  pushTrails(simTime) {
+  // 轨迹按固定模拟时间间隔采点(帧率/速度无关),由主循环在子步间调用
+  pushTrails(t) {
     if (!document.getElementById("show-trail").checked) return;
+    if (t - this.lastTrailPush < TRAIL_PUSH_INTERVAL) return;
+    this.lastTrailPush = t;
+    this.computeTipPositions();
     for (let i = 0; i < this.n; i++) {
       this.trails[i].ring.push(
-        this.tip[i][0], this.tip[i][1], this.tip[i][2], simTime,
+        this.tip[i][0], this.tip[i][1], this.tip[i][2], t,
       );
-      this.trails[i].ring.trim(simTime);
-      this.trails[i].sync();
     }
+  }
+
+  syncTrails(simTime) {
+    for (const t of this.trails) {
+      t.ring.trim(simTime);
+      t.sync();
+    }
+  }
   }
 
   clearTrails() {
@@ -724,6 +753,14 @@ function hideWarning() {
   document.getElementById("numerical-warning").style.display = "none";
 }
 
+// 轨迹留存:滑条 0-100 对数映射到 0.5-600 秒(10 分钟),低段细调、高段直达
+const sliderToSeconds = (v) =>
+  TRAIL_TIME_MIN * Math.pow(TRAIL_TIME_MAX / TRAIL_TIME_MIN, v / 100);
+const secondsToSlider = (t) =>
+  (100 * Math.log(t / TRAIL_TIME_MIN)) / Math.log(TRAIL_TIME_MAX / TRAIL_TIME_MIN);
+const formatTrailTime = (t) =>
+  t < 10 ? `${t.toFixed(1)}s` : `${Math.round(t)}s`;
+
 function setupControls() {
   document.getElementById("play-toggle-btn").addEventListener("click", togglePlay);
   document.getElementById("reset-btn").addEventListener("click", onReset);
@@ -735,11 +772,16 @@ function setupControls() {
   });
 
   document.getElementById("trail-time").addEventListener("input", (e) => {
-    trailFadeSeconds = parseFloat(e.target.value);
+    trailFadeSeconds = sliderToSeconds(parseFloat(e.target.value));
     document.getElementById("trail-time-value").textContent =
-      `${trailFadeSeconds.toFixed(1)}s`;
+      formatTrailTime(trailFadeSeconds);
     syncAllTrails();
   });
+
+  const trailTimeInput = document.getElementById("trail-time");
+  trailTimeInput.value = secondsToSlider(trailFadeSeconds);
+  document.getElementById("trail-time-value").textContent =
+    formatTrailTime(trailFadeSeconds);
 
   document.getElementById("link-count").addEventListener("input", (e) => {
     const n = parseInt(e.target.value, 10);
@@ -911,16 +953,25 @@ function animate(currentTime) {
     } else {
       simDebt = target - substeps * DT;
     }
+    // 轨迹按固定模拟时间间隔采点(每 10 个子步一次),高倍速下采样密度不降级
+    const pushEvery = Math.max(1, Math.round(TRAIL_PUSH_INTERVAL / DT));
     for (let i = 0; i < substeps; i++) {
       pendulumA.step();
       if (pendulumB) pendulumB.step();
+      if ((i + 1) % pushEvery === 0) {
+        const t = simTime + DT * (i + 1);
+        pendulumA.pushTrails(t);
+        if (pendulumB) pendulumB.pushTrails(t);
+      }
     }
     simTime += DT * substeps;
+    pendulumA.pushTrails(simTime);
+    if (pendulumB) pendulumB.pushTrails(simTime);
 
     pendulumA.updateVisuals();
     if (pendulumB) pendulumB.updateVisuals();
-    pendulumA.pushTrails(simTime);
-    if (pendulumB) pendulumB.pushTrails(simTime);
+    pendulumA.syncTrails(simTime);
+    if (pendulumB) pendulumB.syncTrails(simTime);
 
     if (
       !pendulumA.isFiniteState() ||
