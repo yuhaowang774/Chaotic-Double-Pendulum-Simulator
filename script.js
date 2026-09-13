@@ -882,19 +882,23 @@ function init() {
   controls.target.set(0, -1, 0);
 
   scene.add(new THREE.AmbientLight(0x404040, 0.6));
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(5, 10, 5);
-  scene.add(directionalLight);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  keyLight.position.set(5, 10, 5);
+  scene.add(keyLight);
+  const rimLight = new THREE.DirectionalLight(0x8088b0, 0.5);
+  rimLight.position.set(-6, 4, -5);
+  scene.add(rimLight);
 
   const pivot = new THREE.Mesh(
-    new THREE.SphereGeometry(0.08, 16, 16),
+    new THREE.SphereGeometry(0.07, 20, 20),
     new THREE.MeshStandardMaterial({
-      color: 0x607d8b,
-      metalness: 0.5,
+      color: 0xd8dae4,
+      metalness: 0.6,
       roughness: 0.3,
     }),
   );
   scene.add(pivot);
+  scene.add(makeGlowSprite(0xf0f0fa, 0.3));
 
   // 网格地面:单色暗灰,提供 3D 深度参照
   const gridHelper = new THREE.GridHelper(10, 20, 0x555555, 0x222222);
