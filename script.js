@@ -42,6 +42,8 @@ let physicsMode = "planar"; // "planar" | "spherical"
 let simTime = 0;
 let isPlaying = false;
 let lastFrameTime = null;
+let playbackSpeed = 1.0; // 播放速度倍率
+let simDebt = 0; // 未满一个步长的模拟时间结转(慢速/变速时保持节拍精确)
 
 // 数据面板缓存(rebuildParamPanel 时刷新,避免逐帧 getElementById)
 let dataThetaSpans = [];
@@ -673,6 +675,7 @@ function clearAllTrails() {
 
 function setPlaying(playing) {
   isPlaying = playing;
+  if (!playing) simDebt = 0; // 暂停时丢弃未结转的模拟时间
   document.getElementById("play-toggle-btn").textContent = playing
     ? "暂停"
     : "播放";
@@ -707,6 +710,12 @@ function hideWarning() {
 function setupControls() {
   document.getElementById("play-toggle-btn").addEventListener("click", togglePlay);
   document.getElementById("reset-btn").addEventListener("click", onReset);
+
+  document.getElementById("speed").addEventListener("input", (e) => {
+    playbackSpeed = parseFloat(e.target.value);
+    document.getElementById("speed-value").textContent =
+      `${playbackSpeed.toFixed(1)}x`;
+  });
 
   document.getElementById("link-count").addEventListener("input", (e) => {
     const n = parseInt(e.target.value, 10);
@@ -806,6 +815,11 @@ function init() {
   );
   scene.add(pivot);
 
+  // 网格地面:单色暗灰,提供 3D 深度参照
+  const gridHelper = new THREE.GridHelper(10, 20, 0x555555, 0x222222);
+  gridHelper.position.y = -3;
+  scene.add(gridHelper);
+
   rebuildParamPanel();
   rebuildCompareFieldOptions();
   recreatePendulums();
@@ -824,8 +838,16 @@ function animate(currentTime) {
     const elapsed = (currentTime - lastFrameTime) / 1000;
     lastFrameTime = currentTime;
 
-    // 子步上限:标签页后台返回时钳制单帧模拟时长,避免长时间冻结
-    const substeps = Math.min(Math.ceil(elapsed / DT), MAX_SUBSTEPS);
+    // 速度倍率 + 步长债务结转:平均速率精确,慢速不抖动;
+    // 子步上限防标签页后台返回时长时间冻结(超限时丢弃积压)
+    const target = elapsed * playbackSpeed + simDebt;
+    let substeps = Math.floor(target / DT);
+    if (substeps > MAX_SUBSTEPS) {
+      substeps = MAX_SUBSTEPS;
+      simDebt = 0;
+    } else {
+      simDebt = target - substeps * DT;
+    }
     for (let i = 0; i < substeps; i++) {
       pendulumA.step();
       if (pendulumB) pendulumB.step();
