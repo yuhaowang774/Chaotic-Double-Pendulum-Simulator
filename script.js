@@ -115,7 +115,9 @@ class TrailLine {
     const material = new THREE.LineBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
     this.line = new THREE.Line(geometry, material);
     this.line.frustumCulled = false;
@@ -149,16 +151,41 @@ class TrailLine {
 
 // ---------- 摆体(N 杆) ----------
 
-function setLine(line, x0, y0, z0, x1, y1, z1) {
-  const a = line.geometry.attributes.position.array;
-  a[0] = x0;
-  a[1] = y0;
-  a[2] = z0;
-  a[3] = x1;
-  a[4] = y1;
-  a[5] = z1;
-  line.geometry.attributes.position.needsUpdate = true;
+// ---------- 辉光与摆体材质 ----------
+
+let glowTexture = null;
+function getGlowTexture() {
+  if (!glowTexture) {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, "rgba(255,255,255,0.9)");
+    grad.addColorStop(0.3, "rgba(255,255,255,0.32)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+    glowTexture = new THREE.CanvasTexture(canvas);
+  }
+  return glowTexture;
 }
+
+function makeGlowSprite(color, scale) {
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: getGlowTexture(),
+      color,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  sprite.scale.set(scale, scale, 1);
+  return sprite;
+}
+
+const ROD_UP = new THREE.Vector3(0, 1, 0);
+const rodDir = new THREE.Vector3();
 
 class Pendulum {
   constructor(scene, palette, mode) {
@@ -171,34 +198,41 @@ class Pendulum {
     const n = params.lengths.length;
     this.n = n;
     this.state = this.makeInitialState();
-    this.rodMaterial = new THREE.LineBasicMaterial({ color: this.palette.rod });
+    this.rodMaterial = new THREE.MeshStandardMaterial({
+      color: 0xb8bcc8,
+      metalness: 0.6,
+      roughness: 0.35,
+    });
+    this.rodGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1, 12);
     this.rods = [];
     this.bobs = [];
+    this.glows = [];
     this.trails = [];
     this.tip = [];
     for (let i = 0; i < n; i++) {
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute(
-        "position",
-        new THREE.BufferAttribute(new Float32Array(6), 3),
-      );
-      const rod = new THREE.Line(geometry, this.rodMaterial);
-      rod.frustumCulled = false;
+      const rod = new THREE.Mesh(this.rodGeometry, this.rodMaterial);
       scene.add(rod);
       this.rods.push(rod);
 
+      const color = linkColor(this.palette, i, n);
       const bob = new THREE.Mesh(
-        new THREE.SphereGeometry(0.08, 16, 16),
+        new THREE.SphereGeometry(0.1, 24, 24),
         new THREE.MeshStandardMaterial({
-          color: linkColor(this.palette, i, n),
-          metalness: 0.3,
-          roughness: 0.4,
+          color,
+          emissive: color,
+          emissiveIntensity: 0.45,
+          metalness: 0.55,
+          roughness: 0.3,
         }),
       );
       scene.add(bob);
       this.bobs.push(bob);
 
-      this.trails.push(new TrailLine(scene, linkColor(this.palette, i, n)));
+      const glow = makeGlowSprite(color, 0.5);
+      scene.add(glow);
+      this.glows.push(glow);
+
+      this.trails.push(new TrailLine(scene, color));
       this.tip.push([0, 0, 0]);
     }
     this.resetToInitial();
@@ -253,12 +287,24 @@ class Pendulum {
       } else {
         pos = [...this.state.p[i]];
       }
-      setLine(
-        this.rods[i],
-        prev[0], prev[1], prev[2],
-        pos[0], pos[1], pos[2],
+      // 圆柱杆:中点定位 + 单位向量定向 + 长度缩放
+      const rod = this.rods[i];
+      const dx = pos[0] - prev[0];
+      const dy = pos[1] - prev[1];
+      const dz = pos[2] - prev[2];
+      const len = Math.hypot(dx, dy, dz);
+      rod.position.set(
+        (prev[0] + pos[0]) / 2,
+        (prev[1] + pos[1]) / 2,
+        (prev[2] + pos[2]) / 2,
       );
+      if (len > 1e-9) {
+        rodDir.set(dx / len, dy / len, dz / len);
+        rod.quaternion.setFromUnitVectors(ROD_UP, rodDir);
+      }
+      rod.scale.set(1, len, 1);
       this.bobs[i].position.set(pos[0], pos[1], pos[2]);
+      this.glows[i].position.set(pos[0], pos[1], pos[2]);
       this.tip[i] = pos;
       prev = pos;
     }
@@ -280,16 +326,18 @@ class Pendulum {
   }
 
   dispose(scene) {
-    for (const rod of this.rods) {
-      scene.remove(rod);
-      rod.geometry.dispose();
-    }
+    for (const rod of this.rods) scene.remove(rod);
+    this.rodGeometry.dispose();
+    this.rodMaterial.dispose();
     for (const bob of this.bobs) {
       scene.remove(bob);
       bob.geometry.dispose();
       bob.material.dispose();
     }
-    this.rodMaterial.dispose();
+    for (const glow of this.glows) {
+      scene.remove(glow);
+      glow.material.dispose();
+    }
     for (const t of this.trails) t.dispose(scene);
   }
 }
