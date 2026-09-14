@@ -147,3 +147,7 @@ Windows 下可直接双击 `运行全部测试.cmd` 一键运行三套测试。
 ## 贡献
 
 欢迎提交 Issue 与 PR。提交前请运行全部测试并确保通过。
+
+## License
+
+本项目基于 [MIT License](LICENSE) 开源。
