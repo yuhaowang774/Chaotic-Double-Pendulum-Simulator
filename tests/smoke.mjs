@@ -9,6 +9,7 @@ function makeEl(id, tag = "div") {
     checked: true, textContent: "", innerHTML: "",
     clientWidth: 800, clientHeight: 600,
     classList: { toggle(){}, add(){}, remove(){} },
+    setAttribute() {},
     addEventListener(ev, fn) { (listeners[id || tag] ||= {})[ev] = fn; },
     appendChild(child) { if (child && child.tag === "canvas") el._canvas = child; },
     append(...kids) { for (const k of kids) if (k && k.tag === "canvas") el._canvas = k; },
@@ -47,6 +48,7 @@ globalThis.document = {
 globalThis.window = { addEventListener(){} };
 let rafCb = null;
 globalThis.requestAnimationFrame = (cb) => { rafCb = cb; return 1; };
+globalThis.ResizeObserver = class { observe() {} disconnect() {} };
 
 await import("../script.js");
 console.log("PASS 初始化无异常");
@@ -84,5 +86,12 @@ console.log("PASS 随机初始值 + 60 帧播放");
 els["compare-enable"].fire();
 runFrames(60);
 console.log("PASS 对比模式 + 60 帧双摆播放");
+
+// 控制面板折叠/展开切换:面板内按钮收起,画布左上角按钮展开 → 各跑 30 帧
+els["panel-toggle-btn"].fire();
+runFrames(30);
+els["panel-expand-btn"].fire();
+runFrames(30);
+console.log("PASS 控制面板折叠/展开切换");
 
 console.log("全部冒烟测试通过");

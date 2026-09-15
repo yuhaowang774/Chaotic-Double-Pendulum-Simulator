@@ -9,7 +9,19 @@
   <body>
     <div id="container">
       <div id="control-panel">
-      <h2>混沌双摆参数控制</h2>
+        <div id="panel-head">
+          <h2>混沌双摆参数控制</h2>
+          <button
+            id="panel-toggle-btn"
+            type="button"
+            title="收起面板"
+            aria-controls="panel-inner"
+            aria-expanded="true"
+          >
+            收起
+          </button>
+        </div>
+        <div id="panel-inner">
       <div id="numerical-warning" style="display: none;"></div>
       <div class="control-group">
         <div class="segment" id="ui-level-segment">
@@ -144,9 +156,20 @@
           <p>总能量 E: <span id="total-energy">--</span> J</p>
           <p>运行时间: <span id="run-time">--</span> s</p>
         </div>
+        </div>
       </div>
 
-      <div id="canvas-container"></div>
+      <div id="canvas-container">
+        <button
+          id="panel-expand-btn"
+          type="button"
+          title="展开面板"
+          aria-controls="panel-inner"
+          aria-expanded="true"
+        >
+          展开面板
+        </button>
+      </div>
     </div>
 
     <script type="importmap">

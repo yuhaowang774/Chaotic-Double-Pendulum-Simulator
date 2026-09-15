@@ -16,6 +16,7 @@ const TRAIL_TIME_MIN = 0.5; // 轨迹留存范围(秒),滑条为对数刻度
 const TRAIL_TIME_MAX = 600;
 let trailFadeSeconds = 5; // 轨迹留存时长(秒),显示区可调
 const MAX_LINKS = 8;
+const OMEGA_RANGE = 20; // 角速度 ω/ωφ 滑条上限与随机初值幅值(rad/s)
 const AUTO_ROTATE_IDLE_MS = 3000; // 鼠标无操作多久后恢复自动环绕
 const SUB = ["₁", "₂", "₃", "₄", "₅", "₆", "₇", "₈"];
 
@@ -553,7 +554,7 @@ function rebuildParamPanel() {
     sliderRefs.omega[i] = createSlider(
       grid,
       `角速度 ω${SUB[i]}: `,
-      -10, 10, 0.1, params.omega[i],
+      -OMEGA_RANGE, OMEGA_RANGE, 0.1, params.omega[i],
       (v) => v.toFixed(1),
       (v) => onInitialParamChange("omega", i, v),
     );
@@ -569,7 +570,7 @@ function rebuildParamPanel() {
     sliderRefs.omegaphi[i] = createSlider(
       sphGrid,
       `角速度 ωφ${SUB[i]}: `,
-      -10, 10, 0.1, params.omegaphi[i],
+      -OMEGA_RANGE, OMEGA_RANGE, 0.1, params.omegaphi[i],
       (v) => v.toFixed(1),
       (v) => onInitialParamChange("omegaphi", i, v),
     );
@@ -643,10 +644,11 @@ function randomizeInitialConditions() {
   const rand = (min, max) => Math.random() * (max - min) + min;
   for (let i = 0; i < linkCount; i++) {
     params.theta[i] = Math.round(rand(-180, 180)) * (Math.PI / 180);
-    params.omega[i] = Math.round(rand(-10, 10) * 10) / 10;
+    params.omega[i] = Math.round(rand(-OMEGA_RANGE, OMEGA_RANGE) * 10) / 10;
     if (physicsMode === "spherical") {
       params.phi[i] = Math.round(rand(-180, 180)) * (Math.PI / 180);
-      params.omegaphi[i] = Math.round(rand(-10, 10) * 10) / 10;
+      params.omegaphi[i] =
+        Math.round(rand(-OMEGA_RANGE, OMEGA_RANGE) * 10) / 10;
     }
   }
   pendulumA.resetToInitial();
@@ -724,6 +726,18 @@ function syncAllTrails() {
 
 // ---------- 控制按钮与数值防护 ----------
 
+// 控制面板折叠/展开:面板内「收起」按钮与画布左上角「展开面板」按钮共用;
+// 宽度过渡持续改变画布容器尺寸,由 init 中的 ResizeObserver 逐帧同步渲染器与相机
+function togglePanelCollapsed() {
+  const collapsed = document
+    .getElementById("control-panel")
+    .classList.toggle("collapsed");
+  const expanded = String(!collapsed);
+  for (const id of ["panel-toggle-btn", "panel-expand-btn"]) {
+    document.getElementById(id).setAttribute("aria-expanded", expanded);
+  }
+}
+
 function setPlaying(playing) {
   isPlaying = playing;
   if (!playing) simDebt = 0; // 暂停时丢弃未结转的模拟时间
@@ -769,6 +783,12 @@ const formatTrailTime = (t) =>
 function setupControls() {
   document.getElementById("play-toggle-btn").addEventListener("click", togglePlay);
   document.getElementById("reset-btn").addEventListener("click", onReset);
+  document
+    .getElementById("panel-toggle-btn")
+    .addEventListener("click", togglePanelCollapsed);
+  document
+    .getElementById("panel-expand-btn")
+    .addEventListener("click", togglePanelCollapsed);
 
   document.getElementById("speed").addEventListener("input", (e) => {
     playbackSpeed = parseFloat(e.target.value);
@@ -860,9 +880,12 @@ function setupControls() {
 
 function onWindowResize() {
   const container = document.getElementById("canvas-container");
-  camera.aspect = container.clientWidth / container.clientHeight;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  if (w === 0 || h === 0) return;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setSize(w, h);
 }
 
 function init() {
@@ -890,15 +913,15 @@ function init() {
   controls.dampingFactor = 0.05;
   controls.target.set(0, -1, 0);
 
-  // 空闲自动环绕:鼠标按下(画布/面板)或滚轮缩放时暂停,
-  // 松手 3 秒无操作后恢复;每帧由 animate 统一裁决
+  // 空闲自动环绕:仅画布上的按下/滚轮缩放会暂停自动旋转,面板内调参不打断;
+  // 松手 3 秒无操作后恢复,每帧由 animate 统一裁决
   controls.autoRotateSpeed = 0.8;
   renderer.domElement.addEventListener("pointerdown", markInteraction);
   renderer.domElement.addEventListener("wheel", markInteraction, { passive: true });
-  document
-    .getElementById("control-panel")
-    .addEventListener("pointerdown", markInteraction);
-  window.addEventListener("pointerup", markInteraction);
+  window.addEventListener("pointerup", (e) => {
+    // 控制面板内的松开(拖滑条/点按钮)不打断自动环绕
+    if (!e.target?.closest?.("#control-panel")) markInteraction();
+  });
 
   scene.add(new THREE.AmbientLight(0x404040, 0.6));
   const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -928,6 +951,8 @@ function init() {
   recreatePendulums();
 
   window.addEventListener("resize", onWindowResize);
+  // 面板折叠/展开的宽度过渡会连续改变画布容器尺寸,逐帧同步渲染尺寸
+  new ResizeObserver(onWindowResize).observe(container);
   setupControls();
   updateDataDisplay();
   requestAnimationFrame(animate);

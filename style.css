@@ -20,6 +20,7 @@
   --line-soft: rgba(240, 240, 250, 0.15);
   --ease: cubic-bezier(0.19, 1, 0.22, 1);
   --mono: Consolas, "Courier New", monospace;
+  --panel-width: 300px;
 }
 
 body {
@@ -35,36 +36,110 @@ body {
   height: 100vh;
 }
 
+/* 面板:头部常驻(标题 + 折叠按钮),内容区可滚动;
+   折叠时完全收起,由画布左上角的 #panel-expand-btn 重新展开 */
 #control-panel {
-  width: 300px;
-  min-width: 300px;
+  width: var(--panel-width);
+  min-width: 0;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   border-right: 1px solid var(--line);
-  padding: 16px;
-  overflow-y: auto;
+  overflow: hidden;
+  transition:
+    width 0.4s var(--ease),
+    border-right-color 0.4s var(--ease);
 }
 
-#control-panel::-webkit-scrollbar {
-  width: 4px;
+#control-panel.collapsed {
+  width: 0;
+  border-right-color: transparent;
 }
 
-#control-panel::-webkit-scrollbar-track {
-  background: var(--bg);
+#panel-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 46px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--line);
 }
 
-#control-panel::-webkit-scrollbar-thumb {
-  background: var(--line);
-}
-
-#control-panel h2 {
-  text-align: left;
-  margin-bottom: 16px;
+#panel-head h2 {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
   color: var(--ink);
   font-size: 1em;
   font-weight: 700;
   letter-spacing: 3px;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
+  transition: opacity 0.2s var(--ease);
+}
+
+/* 折叠按钮:头部右侧常驻;折叠后成为窄条上的展开入口 */
+#panel-toggle-btn {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition:
+    background 0.22s var(--ease),
+    color 0.22s var(--ease),
+    border-color 0.22s var(--ease);
+}
+
+#panel-toggle-btn:hover {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+
+/* 折叠:标题淡出;动画结束后头部整体隐藏,避免 Tab 键聚焦不可见控件 */
+#control-panel.collapsed #panel-head {
+  visibility: hidden;
+  transition: visibility 0s linear 0.4s;
+}
+
+#control-panel.collapsed #panel-head h2 {
+  opacity: 0;
+}
+
+#panel-inner {
+  width: var(--panel-width);
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 折叠动画结束后再隐藏内容,避免 Tab 键聚焦不可见控件 */
+#control-panel.collapsed #panel-inner {
+  visibility: hidden;
+  transition: visibility 0s linear 0.4s;
+}
+
+#panel-inner::-webkit-scrollbar {
+  width: 4px;
+}
+
+#panel-inner::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+#panel-inner::-webkit-scrollbar-thumb {
+  background: var(--line);
 }
 
 /* 区块:不再使用填充色块,以 1px 分隔线划分 */
@@ -195,6 +270,48 @@ body {
 
 #canvas-container canvas {
   display: block;
+}
+
+/* 展开入口:面板收起后淡入画布左上角,与面板内按钮同一视觉语言 */
+#panel-expand-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  padding: 6px 10px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    background 0.22s var(--ease),
+    color 0.22s var(--ease),
+    opacity 0.25s var(--ease),
+    visibility 0s linear 0.25s;
+}
+
+#panel-expand-btn:hover {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* 面板收起动画接近尾声时按钮淡入 */
+#control-panel.collapsed ~ #canvas-container #panel-expand-btn {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    background 0.22s var(--ease),
+    color 0.22s var(--ease),
+    opacity 0.25s var(--ease) 0.2s,
+    visibility 0s linear 0.2s;
 }
 
 /* 混沌对比 */
