@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小红书笔记预览</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(1200px 800px at 50% 18%, #2a2a30, #131316 72%);
+        font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      /* 手机模型:高度同时受窗口高与宽约束,保持 390:844 比例 */
+      .phone {
+        position: relative;
+        height: min(844px, 94vh, calc(94vw * 844 / 390));
+        aspect-ratio: 390 / 844;
+        background: #000;
+        border-radius: 48px;
+        padding: 10px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 2px #3a3a40;
+      }
+      .screen {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 39px;
+        overflow: hidden;
+        background: #fff;
+      }
+      .screen iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+      }
+      .dynamic-island {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 108px;
+        height: 30px;
+        background: #000;
+        border-radius: 16px;
+        z-index: 3;
+      }
+      .statusbar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 52px;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 26px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #111;
+        pointer-events: none;
+      }
+      .statusbar .signals {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .signal-bars {
+        display: inline-flex;
+        align-items: flex-end;
+        gap: 1.5px;
+        height: 10px;
+      }
+      .signal-bars i {
+        width: 3px;
+        background: #111;
+        border-radius: 1px;
+      }
+      .signal-bars i:nth-child(1) { height: 4px; }
+      .signal-bars i:nth-child(2) { height: 6px; }
+      .signal-bars i:nth-child(3) { height: 8px; }
+      .signal-bars i:nth-child(4) { height: 10px; }
+      .battery {
+        position: relative;
+        width: 22px;
+        height: 11px;
+        border: 1px solid #111;
+        border-radius: 3px;
+      }
+      .battery::before {
+        content: "";
+        position: absolute;
+        inset: 1.5px;
+        background: #111;
+        border-radius: 1.5px;
+      }
+      .battery::after {
+        content: "";
+        position: absolute;
+        right: -3px;
+        top: 3px;
+        width: 1.5px;
+        height: 4px;
+        background: #111;
+        border-radius: 1px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone">
+      <div class="screen">
+        <div class="statusbar">
+          <span>9:41</span>
+          <span class="signals">
+            <span class="signal-bars"><i></i><i></i><i></i><i></i></span>
+            <span class="battery"></span>
+          </span>
+        </div>
+        <iframe src="post/rednote-post.html" title="小红书笔记内容"></iframe>
+        <div class="dynamic-island"></div>
+      </div>
+    </div>
+  </body>
+</html>

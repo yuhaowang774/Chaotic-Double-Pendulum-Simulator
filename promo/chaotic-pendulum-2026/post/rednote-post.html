@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>混沌双摆做成网页了，随便玩</title>
+    <style>
+      :root {
+        --red: #ff2e4d;
+        --ink: #262626;
+        --sub: #6b6b6b;
+        --line: #efefef;
+        --tag: #2d64a8;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #fff;
+        color: var(--ink);
+        font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+        /* 顶部:预留外壳状态栏高度;底部:预留操作栏高度 */
+        padding: 52px 0 76px;
+      }
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 2px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .author {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 14px 12px;
+      }
+      .avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, #ffd6a5, #ff9a8b);
+      }
+      .author-name {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+      }
+      .follow {
+        padding: 5px 14px;
+        border: 1px solid var(--red);
+        border-radius: 15px;
+        background: transparent;
+        color: var(--red);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .images {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .note-img {
+        width: 100%;
+        display: block;
+        background: #f6f6f6;
+      }
+      .note-content {
+        padding: 14px 14px 0;
+      }
+      .title {
+        font-size: 19px;
+        font-weight: 600;
+        line-height: 1.45;
+        margin-bottom: 10px;
+      }
+      .body {
+        font-size: 15px;
+        line-height: 1.85;
+        color: #2b2b2b;
+      }
+      .body p {
+        margin-bottom: 12px;
+      }
+      .tags {
+        margin: 4px 0 10px;
+        font-size: 14px;
+        line-height: 2;
+      }
+      .tag {
+        color: var(--tag);
+        font-weight: 500;
+        margin-right: 6px;
+      }
+      .actionbar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: #fff;
+        border-top: 1px solid var(--line);
+      }
+      .input {
+        flex: 1;
+        background: #f4f4f4;
+        border-radius: 18px;
+        padding: 8px 14px;
+        color: #9a9a9a;
+        font-size: 13px;
+      }
+      .icons {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: #4a4a4a;
+      }
+      .icons svg {
+        width: 22px;
+        height: 22px;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="author">
+      <div class="avatar"></div>
+      <div class="author-name">小红薯</div>
+      <button type="button" class="follow">关注</button>
+    </div>
+    <div class="images">
+      <img class="note-img" src="../images/cover.png" alt="" />
+      <img class="note-img" src="../images/planar.png" alt="" />
+      <img class="note-img" src="../images/nlink.png" alt="" />
+      <img class="note-img" src="../images/spherical.png" alt="" />
+      <img class="note-img" src="../images/spherical-panel.png" alt="" />
+      <img class="note-img" src="../images/diverge.png" alt="" />
+    </div>
+    <div class="note-content">
+      <h1 class="title">混沌双摆做成网页了，随便玩</h1>
+      <article class="body">
+            <p>一直想搞明白混沌到底是怎么回事，书上那句「初值敏感」太抽象，干脆自己写了个双摆模拟器。</p>
+      <p>现在能玩这些：</p>
+      <p>1. 平面 1-8 杆链，每根杆的长度、质量和初始角度都能单独调</p>
+      <p>2. 球面 3D 模式，摆是真的在三维空间里甩</p>
+      <p>3. 混沌对比：两个摆的起点只差一点点，几十秒后轨迹就完全分道扬镳，这个我每次看都起鸡皮疙瘩</p>
+      <p>4. 轨迹能留 10 分钟，甩出来的线条像长曝光</p>
+      <p>5. 不用装任何东西，打开网页就能玩</p>
+      <p>物理内核用 RK4，还专门写了验证脚本盯着能量守恒，强迫症改了好多遍。</p>
+      <p>代码开源了。两根一模一样的杆，就因为起点差了那么一点点，走出完全不同的命运，比讲一百遍混沌理论都直观。</p>
+      </article>
+      <div class="tags"><span class="tag">#双摆</span><span class="tag">#混沌理论</span><span class="tag">#物理</span><span class="tag">#科学可视化</span><span class="tag">#科普</span><span class="tag">#涨知识</span><span class="tag">#开源项目</span><span class="tag">#独立开发</span><span class="tag">#程序员</span></div>
+    </div>
+    <div class="actionbar">
+      <div class="input">说点什么...</div>
+      <div class="icons">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.3C7.2 16.5 3.5 13.2 3.5 9.6 3.5 7.1 5.4 5.5 7.4 5.5c1.6 0 3.2 1 4.6 2.8 1.4-1.8 3-2.8 4.6-2.8 2 0 3.9 1.6 3.9 4.1 0 3.6-3.7 6.9-8.5 10.7z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.7l2.5 5.1 5.6.8-4.1 4 1 5.6L12 16.5l-5 2.7 1-5.6-4.1-4 5.6-.8z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 5.5h15v10.5H9l-4.5 3.8z"/></svg>
+      </div>
+    </div>
+  </body>
+</html>

@@ -115,14 +115,18 @@ class TrailLine {
   constructor(scene, color) {
     this.ring = new TrailRing(TRAIL_CAPACITY);
     this.positions = new Float32Array(TRAIL_CAPACITY * 3);
+    this.colors = new Float32Array(TRAIL_CAPACITY * 3); // 顶点渐隐系数(灰度)
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute(
       "position",
       new THREE.BufferAttribute(this.positions, 3),
     );
+    geometry.setAttribute("color", new THREE.BufferAttribute(this.colors, 3));
     geometry.setDrawRange(0, 0);
+    // vertexColors 与基色相乘:顶点色按点龄衰减,尾端平滑渐隐
     const material = new THREE.LineBasicMaterial({
       color,
+      vertexColors: true,
       transparent: true,
       opacity: 0.8,
       blending: THREE.AdditiveBlending,
@@ -133,10 +137,11 @@ class TrailLine {
     scene.add(this.line);
   }
 
-  // 把环形缓冲按“旧→新”顺序摊平进 geometry
-  // 环形缓冲拆成两段连续内存,用 set() 原生拷贝(数万点下远快于逐点循环)
-  sync() {
-    const { ring, positions } = this;
+  // 把环形缓冲按“旧→新”顺序摊平进 geometry,并按点龄写入渐隐顶点色:
+  // f = 1 − 点龄/留存时长,钳制到 [0,1](加法混合下颜色趋黑即视觉透明)。
+  // 环形缓冲拆成两段连续内存,位置用 set() 原生拷贝(数万点下远快于逐点循环)
+  sync(now) {
+    const { ring, positions, colors } = this;
     const n = ring.count;
     if (n === 0) {
       this.line.geometry.setDrawRange(0, 0);
@@ -150,7 +155,22 @@ class TrailLine {
     if (n > firstLen) {
       positions.set(ring.data.subarray(0, (n - firstLen) * 3), firstLen * 3);
     }
+    const inv = 1 / trailFadeSeconds;
+    let ci = 0;
+    for (let seg = 0; seg < 2; seg++) {
+      const segLen = seg === 0 ? firstLen : n - firstLen;
+      const tStart = seg === 0 ? ring.head : 0;
+      for (let i = 0; i < segLen; i++) {
+        let f = 1 - (now - ring.t[tStart + i]) * inv;
+        if (f < 0) f = 0;
+        else if (f > 1) f = 1;
+        colors[ci++] = f;
+        colors[ci++] = f;
+        colors[ci++] = f;
+      }
+    }
     this.line.geometry.attributes.position.needsUpdate = true;
+    this.line.geometry.attributes.color.needsUpdate = true;
     this.line.geometry.setDrawRange(0, n);
   }
 
@@ -313,7 +333,7 @@ class Pendulum {
   syncTrails(simTime) {
     for (const t of this.trails) {
       t.ring.trim(simTime);
-      t.sync();
+      t.sync(simTime);
     }
   }
 
@@ -719,7 +739,7 @@ function syncAllTrails() {
     if (!pend) continue;
     for (const t of pend.trails) {
       t.ring.trim(simTime);
-      t.sync();
+      t.sync(simTime);
     }
   }
 }
