@@ -41,7 +41,7 @@ node server.js
 
 也可以使用任意静态服务器（如 VS Code Live Server、`npx serve`）。注意：页面使用 ES 模块，必须通过 HTTP 访问，直接双击 `index.html`（`file://` 协议）无法运行。
 
-Three.js r160 通过 jsDelivr importmap 加载，无需安装任何 npm 依赖。
+Three.js r160 已内置于 `vendor/`（importmap 指向本地文件），无需安装任何 npm 依赖，也不依赖外部 CDN。
 
 ## 使用指南
 
